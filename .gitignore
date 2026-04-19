@@ -1,0 +1,9 @@
+# 강사용 자료 (수강생에게 불필요)
+docs/
+
+# OS 생성 파일
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
