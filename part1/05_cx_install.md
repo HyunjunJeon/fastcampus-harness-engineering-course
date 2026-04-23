@@ -1,12 +1,12 @@
-# 05. Codex CLI 설치 가이드
+# 05. Codex 설치 가이드
 
 ---
 
 ## 0. 설치 전에 알아둘 것
 
-OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CLI**입니다. Claude Code와 역할이 같지만, 인증·모델·설정 파일이 전부 다른 생태계를 씁니다. 핵심 차이를 먼저 정리하면 다음과 같습니다.
+OpenAI **Codex**는 터미널에서 돌아가는 **AI 코딩 에이전트 CLI/App**입니다. Claude Code와 역할이 같지만, 인증·모델·설정 파일이 전부 다른 생태계를 씁니다. 핵심 차이를 먼저 정리하면 다음과 같습니다.
 
-| 항목 | Claude Code | Codex CLI |
+| 항목 | Claude Code | Codex |
 |------|-------------|-----------|
 | 공식 CLI 명령어 | `claude` | `codex` |
 | 설치 패키지 (npm) | `@anthropic-ai/claude-code` | `@openai/codex` |
@@ -17,8 +17,6 @@ OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CL
 | 설정 포맷 | JSON | TOML |
 | 비대화형(CI) 모드 | `claude -p "..."` | `codex exec "..."` |
 | 공식 저장소 | github.com/anthropics/claude-code | github.com/openai/codex |
-
-> **핵심 포인트.** 두 도구는 "같은 컴퓨터에 공존 가능"합니다. 경로가 완전히 다르고(`~/.claude` vs `~/.codex`) 명령어가 다르기 때문입니다. 이 과정 전체는 두 도구를 **같은 폴더에서 번갈아 쓰며 비교**하는 흐름으로 설계돼 있으므로, 둘 다 설치해 두는 것을 권장합니다.
 
 설치 방식은 세 가지입니다.
 
@@ -38,8 +36,6 @@ OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CL
 > - **macOS:** 전용 **Codex Desktop 앱(.dmg)** 을 내려받습니다(아래 0-1A).
 > - **Windows:** **Microsoft Store**에서 Codex 앱을 설치하거나 `winget install Codex -s msstore`로 설치합니다(아래 0-1B). WSL2도 함께 지원됩니다(WSL1은 Codex 0.115부터 지원 중단).
 > - **Linux:** 전용 Desktop 앱이 없으므로 **브라우저 Codex**([https://chatgpt.com/codex](https://chatgpt.com/codex))를 GUI 대체로 사용합니다(아래 0-1C).
->
-> 세 경로 모두 "GUI 맛보기"라는 목적은 같고, 본 실습의 주 무대는 여전히 방식 A(CLI)입니다.
 
 ### 0-1A. macOS — Codex Desktop 앱 다운로드
 
