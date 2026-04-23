@@ -12,7 +12,7 @@ OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CL
 | 설치 패키지 (npm) | `@anthropic-ai/claude-code` | `@openai/codex` |
 | 설치 패키지 (Homebrew) | `claude-code` | `codex` |
 | 인증 | Anthropic 계정 (Claude Pro/Max) 또는 API 키 | ChatGPT 계정 (Plus/Pro/Business/Enterprise) 또는 `OPENAI_API_KEY` |
-| Desktop 앱 연동 | Claude Desktop 앱 (Mac/Windows) | Codex Desktop 앱 (**macOS 전용, 2026-04 기준**) · 브라우저 Codex는 전 OS |
+| Desktop 앱 연동 | Claude Desktop 앱 (Mac/Windows) | Codex Desktop 앱 (**macOS · Windows**, 2026-04 기준) · Linux는 브라우저 Codex |
 | 설정 파일 위치 | `~/.claude/settings.json` | `~/.codex/config.toml` |
 | 설정 포맷 | JSON | TOML |
 | 비대화형(CI) 모드 | `claude -p "..."` | `codex exec "..."` |
@@ -24,7 +24,7 @@ OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CL
 
 | 방식 | 장점 | 추천 대상 |
 |------|------|-----------|
-| **0. Codex Desktop 앱 (GUI, Mac 전용) / 브라우저 Codex (Windows·Linux)** | 설치 파일 더블 클릭 또는 웹 접속으로 끝. Codex를 GUI로 바로 체험 | 터미널이 처음이라 부담스러운 분 |
+| **0. Codex Desktop 앱 (GUI, Mac · Windows) / 브라우저 Codex (Linux)** | 설치 파일 더블 클릭·MS Store 한 번 클릭·웹 접속으로 끝. Codex를 GUI로 바로 체험 | 터미널이 처음이라 부담스러운 분 |
 | **A. 네이티브 CLI 설치 (권장)** | 가장 공식적인 경로. Homebrew(Mac)·npm·공식 바이너리 | 이 교재의 본 실습을 하실 분 |
 | **B. 바이너리 직접 내려받기** | Node.js·Homebrew·npm 어느 것도 쓰고 싶지 않을 때 | 회사 보안 정책으로 패키지 매니저 사용이 제한된 분 |
 
@@ -32,13 +32,14 @@ OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CL
 
 ---
 
-## 방식 0. GUI로 빠르게 시작하기 (Mac = 앱 / Windows·Linux = 브라우저 Codex)
+## 방식 0. GUI로 빠르게 시작하기 (Mac · Windows = 앱 / Linux = 브라우저 Codex)
 
 > **중요 — 플랫폼별로 경로가 다릅니다.**
-> - **macOS:** 전용 **Codex Desktop 앱**을 내려받습니다(아래 0-1A).
-> - **Windows / Linux:** Codex Desktop 앱은 **2026-04 기준 macOS 전용**이라 제공되지 않습니다. 대신 **브라우저 Codex**([https://chatgpt.com/codex](https://chatgpt.com/codex))를 GUI 대체로 사용합니다(아래 0-1B).
+> - **macOS:** 전용 **Codex Desktop 앱(.dmg)** 을 내려받습니다(아래 0-1A).
+> - **Windows:** **Microsoft Store**에서 Codex 앱을 설치하거나 `winget install Codex -s msstore`로 설치합니다(아래 0-1B). WSL2도 함께 지원됩니다(WSL1은 Codex 0.115부터 지원 중단).
+> - **Linux:** 전용 Desktop 앱이 없으므로 **브라우저 Codex**([https://chatgpt.com/codex](https://chatgpt.com/codex))를 GUI 대체로 사용합니다(아래 0-1C).
 >
-> 두 경로 모두 "GUI 맛보기"라는 목적은 같고, 본 실습의 주 무대는 여전히 방식 A(CLI)입니다.
+> 세 경로 모두 "GUI 맛보기"라는 목적은 같고, 본 실습의 주 무대는 여전히 방식 A(CLI)입니다.
 
 ### 0-1A. macOS — Codex Desktop 앱 다운로드
 
@@ -51,9 +52,32 @@ OpenAI **Codex CLI**는 터미널에서 돌아가는 **AI 코딩 에이전트 CL
 
 > 공식 다운로드 경로가 바뀌는 일이 잦습니다. 위 링크에서 버튼이 보이지 않으면 상단 네비게이션의 "Codex" 메뉴나 문서 페이지에서 Download를 찾으세요.
 
-### 0-1B. Windows · Linux — 브라우저 Codex로 시작하기
+### 0-1B. Windows — Codex Desktop 앱 설치 (Microsoft Store · winget)
 
-Windows·Linux에는 전용 Desktop 앱이 없으므로 **웹 기반 Codex**를 쓰면 됩니다. 설치 없이 브라우저만으로 동일한 에이전트 기능을 체험할 수 있습니다.
+Windows에도 2026년부터 **Codex Desktop 앱**이 제공됩니다. 설치 경로는 두 가지이며 결과물은 같습니다.
+
+1. **Microsoft Store (GUI):** Store 앱에서 "Codex"로 검색 → **설치**.
+2. **PowerShell (CLI):** 아래 한 줄이면 끝납니다. `-s msstore`는 소스를 Microsoft Store로 고정해 다른 저장소에서 동명 패키지가 잡히는 오설치를 막아 줍니다.
+
+```powershell
+winget install Codex -s msstore
+```
+
+설치 후 시작 메뉴에서 **Codex**를 실행하고 ChatGPT 계정(Plus / Pro / Business / Enterprise)으로 로그인합니다.
+
+> **PowerShell 실행 정책 주의.** 앱 내부에서 npm 스크립트를 쓸 때 `npm.ps1 cannot be loaded because running scripts is disabled on this system` 오류가 뜨면 PowerShell 실행 정책을 완화해야 합니다.
+>
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+> ```
+>
+> 현재 세션에만 임시 적용하려면 `-Scope Process Bypass`를 대신 쓰세요.
+
+> **지원 환경.** Codex Windows 앱은 Windows 네이티브와 **WSL2**에서 동작합니다. **WSL1은 Codex 0.115 버전부터 지원이 중단**되었으므로, 구형 환경이면 `wsl --set-version <distro> 2`로 WSL2로 먼저 올리세요.
+
+### 0-1C. Linux — 브라우저 Codex로 시작하기
+
+Linux에는 전용 Desktop 앱이 없으므로 **웹 기반 Codex**를 쓰면 됩니다. 설치 없이 브라우저만으로 동일한 에이전트 기능을 체험할 수 있습니다.
 
 1. 브라우저(Chrome·Edge·Firefox 등)에서 [https://chatgpt.com/codex](https://chatgpt.com/codex) 접속.
 2. ChatGPT 계정(Plus / Pro / Business / Enterprise)으로 로그인.
@@ -61,21 +85,21 @@ Windows·Linux에는 전용 Desktop 앱이 없으므로 **웹 기반 Codex**를 
 
 > **브라우저 Codex와 Desktop 앱의 차이 — 반드시 알아둘 것.**
 > - **브라우저 Codex는 OpenAI의 클라우드 샌드박스에서 실행**됩니다. 즉 내 로컬 폴더에는 직접 접근하지 못합니다. 파일 변경은 **GitHub 저장소를 통한 PR** 형태로만 내 환경에 반영됩니다.
-> - **Desktop 앱은 로컬 폴더를 직접 연다**는 점이 가장 큰 차이입니다.
-> - 이 과정의 뒷 단원은 **로컬 Git 실습**을 전제하므로, Windows·Linux 학습자는 0-1B로 맛만 본 뒤 **방식 A(CLI)로 빠르게 넘어가는 것**을 권장합니다.
+> - **Desktop 앱(macOS · Windows)은 로컬 폴더를 직접 연다**는 점이 가장 큰 차이입니다.
+> - 이 과정의 뒷 단원은 **로컬 Git 실습**을 전제하므로, Linux 학습자는 0-1C로 맛만 본 뒤 **방식 A(CLI)로 빠르게 넘어가는 것**을 권장합니다.
 
 ### 0-2. GUI 둘러보기
 
-#### macOS — Codex Desktop 앱
+#### macOS · Windows — Codex Desktop 앱
 
-Codex Desktop 앱은 **Codex 에이전트 전용** UI입니다. 처음 실행하면 다음과 같은 주요 영역이 보입니다.
+Codex Desktop 앱은 **Codex 에이전트 전용** UI입니다. macOS와 Windows 앱 모두 거의 동일한 화면 구성을 갖습니다. 처음 실행하면 다음과 같은 주요 영역이 보입니다.
 
-- **Workspace(작업 폴더) 선택:** 에이전트가 읽고 쓸 수 있는 범위를 이 단계에서 결정합니다. 첫 폴더를 열 때 폴더 권한 허용 대화상자가 뜹니다.
+- **Workspace(작업 폴더) 선택:** 에이전트가 읽고 쓸 수 있는 범위를 이 단계에서 결정합니다. 첫 폴더를 열 때 폴더 권한 허용 대화상자가 뜹니다(Windows에서는 SmartScreen·UAC 프롬프트가 추가로 뜰 수 있습니다).
 - **Task / Agent 탭:** 자연어로 작업을 지시하면 에이전트가 계획 → 파일 변경 → diff 리뷰 → 커밋 단계로 진행합니다.
-- **Sandbox 설정:** 쉘 명령 실행 허용 범위, 네트워크 접근 허용 여부를 토글할 수 있습니다. 초기값은 **읽기 전용**에 가까우므로 쓰기 작업을 시키려면 승인이 필요합니다.
+- **Sandbox 설정:** 쉘 명령 실행 허용 범위, 네트워크 접근 허용 여부를 토글할 수 있습니다. 초기값은 **읽기 전용**에 가까우므로 쓰기 작업을 시키려면 승인이 필요합니다. Windows 앱은 네이티브 쉘(PowerShell·cmd)과 **WSL2** 중 실행 쉘을 고를 수 있습니다.
 - **Diff 리뷰 창:** 에이전트가 변경하려는 내용을 커밋 전에 하나씩 수락/거절할 수 있습니다 — 본 교재가 강조하는 "사람 승인 게이트"의 UI 버전입니다.
 
-#### Windows · Linux — 브라우저 Codex
+#### Linux — 브라우저 Codex
 
 웹 UI도 Desktop 앱과 기능적으로 대응되는 영역을 갖고 있습니다. 명칭만 조금 다릅니다.
 
@@ -90,8 +114,9 @@ Codex Desktop 앱은 **Codex 에이전트 전용** UI입니다. 처음 실행하
 
 Codex Desktop 앱·브라우저 Codex(chatgpt.com/codex)·Codex CLI는 **모두 같은 ChatGPT 계정**을 공유합니다. 그래서 어느 쪽이든 한 번 로그인해 두면 CLI에서 별도 로그인 없이 바로 쓸 수 있는 경우가 많습니다. 학습자 대부분에게 가장 편한 순서는 다음과 같습니다.
 
-- **macOS:** Codex Desktop 앱 설치·로그인 → CLI 설치(방식 A).
-- **Windows·Linux:** 브라우저 Codex(chatgpt.com/codex)에 로그인 → CLI 설치(방식 A).
+- **macOS:** Codex Desktop 앱(.dmg) 설치·로그인 → CLI 설치(방식 A).
+- **Windows:** Codex Desktop 앱(Microsoft Store · `winget install Codex -s msstore`) 설치·로그인 → CLI 설치(방식 A).
+- **Linux:** 브라우저 Codex(chatgpt.com/codex)에 로그인 → CLI 설치(방식 A).
 
 공통으로, 터미널에서 `codex`를 실행하면 `codex login` 없이 바로 프롬프트가 뜨는 경우가 많고, 그렇지 않으면 `codex login` 한 번만 돌리면 끝입니다.
 
@@ -103,28 +128,31 @@ Codex Desktop 앱·브라우저 Codex(chatgpt.com/codex)·Codex CLI는 **모두 
 
 "에이전트가 자기 다음 단계 도구를 설치해 주는" 실습은 플랫폼별로 진입점이 다릅니다.
 
-- **macOS (Codex Desktop 앱 이용):** 앱의 Task/Agent 창에 아래 Mac용 프롬프트를 붙여 넣습니다.
-- **Windows·Linux (Codex Desktop 앱 부재):** 이 실습은 **04단원에서 설치한 Claude Code CLI**에 맡기는 편이 가장 자연스럽습니다(아래 0-5절). 브라우저 Codex는 OpenAI 클라우드 샌드박스에서 돌기 때문에 내 로컬에 `codex`를 설치할 수 없습니다.
+- **macOS · Windows (Codex Desktop 앱 이용):** 앱의 Task/Agent 창에 아래 프롬프트를 붙여 넣습니다. Windows 앱은 기본 실행 쉘이 PowerShell이므로, 프롬프트가 PowerShell 명령을 선택하도록 유도하는 게 안전합니다.
+- **Linux (Codex Desktop 앱 부재):** 이 실습은 **04단원에서 설치한 Claude Code CLI**에 맡기는 편이 가장 자연스럽습니다(아래 0-5절). 브라우저 Codex는 OpenAI 클라우드 샌드박스에서 돌기 때문에 내 로컬에 `codex`를 설치할 수 없습니다.
 
-**Mac — Codex Desktop 앱 안에서:**
+**macOS · Windows — Codex Desktop 앱 안에서:**
 
 ```text
-내 Mac에 OpenAI Codex CLI를 설치해 줘. 설치 경로는 다음 세 가지 중 하나로,
-내 환경에 맞는 것을 네가 판단해서 골라:
-  - Homebrew가 있으면: `brew install codex`
-  - Node.js v22 이상이 있으면: `npm install -g @openai/codex`
-  - 둘 다 없으면: 둘 중 하나를 먼저 설치해 달라고 나에게 알려
+내 컴퓨터에 OpenAI Codex CLI를 설치해 줘. OS와 설치 도구를 먼저 감지하고,
+아래 중 내 환경에 맞는 경로 하나를 네가 골라서 진행해:
+  - macOS + Homebrew: `brew install codex`
+  - macOS + Node.js v22+: `npm install -g @openai/codex`
+  - Windows + Node.js v22+ (PowerShell): `npm install -g @openai/codex`
+    · `npm.ps1 ... running scripts is disabled` 오류가 나면
+      `Set-ExecutionPolicy -Scope Process Bypass`를 먼저 적용
+  - 위 조건을 하나도 만족하지 않으면: 선행 도구 설치를 나에게 먼저 요청
 설치가 끝나면 `codex --version`으로 확인하고,
 위험해 보이는 명령이 있으면 실행 전에 반드시 나에게 먼저 알려 줘.
 ```
 
-권한 팝업이 뜨면 스크립트 내용을 **눈으로 확인**한 뒤 "허용". 설치가 끝나면 터미널을 새로 열어 `codex --version`을 다시 확인하세요.
+권한 팝업(macOS) 또는 UAC·SmartScreen 프롬프트(Windows)가 뜨면 스크립트 내용을 **눈으로 확인**한 뒤 허용하세요. 설치가 끝나면 터미널을 새로 열어 `codex --version`을 다시 확인합니다.
 
-> **Windows·Linux 학습자에게:** Codex Desktop 앱이 없으므로 이 경로는 사용할 수 없습니다. 대신 아래 0-5절의 "Claude Code로 Codex 설치하기"로 진행하세요 — 본질적으로 같은 실습이며, 오히려 **다른 공급사의 에이전트에게 설치를 맡긴다**는 점에서 멀티 에이전트 오케스트레이션의 의미가 더 살아납니다.
+> **Linux 학습자에게:** Codex Desktop 앱이 없으므로 이 경로는 사용할 수 없습니다. 대신 아래 0-5절의 "Claude Code로 Codex 설치하기"로 진행하세요 — 본질적으로 같은 실습이며, 오히려 **다른 공급사의 에이전트에게 설치를 맡긴다**는 점에서 멀티 에이전트 오케스트레이션의 의미가 더 살아납니다.
 
 ### 0-5. (보너스 2) Claude Code로 Codex 설치하기 — 멀티 에이전트 첫 실습
 
-이미 04단원에서 Claude Code CLI를 설치했다면, **Claude Code에게 Codex 설치를 맡기는 실습**이 가능합니다. 이게 이 과정이 다루는 "여러 에이전트를 역할별로 나눠 쓰기"의 가장 단순한 첫 사례이자, **Windows·Linux 학습자가 0-4를 대신해 쓰는 정식 경로**이기도 합니다.
+이미 04단원에서 Claude Code CLI를 설치했다면, **Claude Code에게 Codex 설치를 맡기는 실습**이 가능합니다. 이게 이 과정이 다루는 "여러 에이전트를 역할별로 나눠 쓰기"의 가장 단순한 첫 사례이자, **Linux 학습자가 0-4를 대신해 쓰는 정식 경로**이기도 합니다. (macOS·Windows 학습자도 Desktop 앱 없이 CLI만으로 진행하고 싶다면 이 경로가 유효합니다.)
 
 터미널에서 작업 폴더로 이동한 뒤 `claude`를 실행하고, 프롬프트에 아래를 붙여 넣으세요.
 
@@ -263,6 +291,8 @@ ls ~/.codex
 ---
 
 ## 2. OS: Windows
+
+> **GUI부터 빠르게 쓰고 싶다면** 방식 0의 Windows 앱 경로(0-1B)를 먼저 보세요. `winget install Codex -s msstore` 한 줄이면 끝입니다. 아래 2장은 **CLI** 설치 경로입니다.
 
 ### 2-1. 사전 준비: PowerShell 관리자 권한으로 열기
 
