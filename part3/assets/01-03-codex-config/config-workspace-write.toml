@@ -1,0 +1,9 @@
+# Codex 운영 모드: workspace-write + on-request
+# 일반 업무 — 파일 변경은 자동, 외부 명령은 승인 요청
+# (촬영일 기준 공식 문서 확인 — Codex config-advanced 페이지에서 정확한 키 이름 검증)
+
+[sandbox]
+mode = "workspace-write"
+
+[approval]
+mode = "on-request"

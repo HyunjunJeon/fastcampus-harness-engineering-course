@@ -1,0 +1,9 @@
+# Codex 운영 모드: read-only + untrusted
+# 새 저장소 탐색용 — 어떤 변경도 일어나지 않음
+# (촬영일 기준 공식 문서 확인)
+
+[sandbox]
+mode = "read-only"
+
+[approval]
+mode = "untrusted"
