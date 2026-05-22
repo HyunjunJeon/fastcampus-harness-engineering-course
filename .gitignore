@@ -6,4 +6,4 @@ Thumbs.db
 *_cache
 
 # 툴 런타임 상태 (OMC 등)
-.omc/
+.o*
