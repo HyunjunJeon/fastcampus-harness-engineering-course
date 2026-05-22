@@ -1,0 +1,30 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 본 워크플로우는 untrusted 입력(github.event.*)을 run: 에 끼워 넣지 않습니다.
+# 추가 잡을 만들 때도 같은 원칙을 따르세요.
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (best-effort)
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest || true
+
+      - name: Run agent verification
+        run: bash scripts/agent_verify.sh

@@ -1,0 +1,6 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+logs/
+hook_smoke_*.txt

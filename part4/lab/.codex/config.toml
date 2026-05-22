@@ -1,0 +1,9 @@
+# Codex 프로젝트 설정 (강의 실습용)
+# `codex features list`에서 `hooks` flag는 stable, true 입니다.
+# 즉 별도 활성화 없이 .codex/hooks.json이 동작하므로 [features] 항목은 보통 필요하지 않습니다.
+# 그래도 명시적으로 적어 두고 싶다면 아래 라인을 풀어 두세요.
+
+# [features]
+# hooks = true
+
+# 훅 본문은 hooks.json으로 분리합니다.
