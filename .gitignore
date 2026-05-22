@@ -1,11 +1,9 @@
-# 강사용 자료 (수강생에게 불필요)
-docs/
-!part4/lab/docs/
-!part4/lab/docs/*.md
-
 # OS 생성 파일
 .DS_Store
 Thumbs.db
 
-# Node.js
-node_modules/
+# 강사용 자료 (수강생에게 불필요)
+docs/
+
+# 그 외
+*_cache
