@@ -1,6 +1,7 @@
 # Session 4-1 - 추측 대신 측정 가능한 완료 기준 세우기
 
-> "잘 된 것 같다"는 AI Agent 말은 위험 신호입니다. 작업을 시작하기 전에 무엇을 보면 완료라고 말할지 먼저 정합니다.
+> "잘 된 것 같다"는 AI Agent 말은 위험 신호입니다. 
+> 작업을 시작하기 전에 무엇을 보면 완료라고 말할지 먼저 정합니다.
 
 - 작업 요청을 목표, 제약, 완료 기준 세 칸으로 나누어 적습니다.
 - 완료 기준에는 사람이 직접 눈으로 확인할 증거를 적어도 하나 둡니다.
@@ -38,7 +39,7 @@ Codex 공식 가이드는 작업 요청에 목표, 컨텍스트, 제약, 완료 
 
 - 공식 (Claude Code): [Best practices for Claude Code — "Give Claude a way to verify its work"](https://code.claude.com/docs/en/best-practices)
 - 공식 (Codex): [Codex best practices — "Done when" 가이드](https://developers.openai.com/codex/learn/best-practices)
-- 공식 (Codex): [Codex prompting — 측정 가능한 목표 작성법](https://developers.openai.com/codex/prompting)
+- 공식 (Codex): [Codex prompting](https://developers.openai.com/codex/prompting)
 
 ## 실습
 

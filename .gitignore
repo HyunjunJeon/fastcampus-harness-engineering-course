@@ -5,5 +5,5 @@ Thumbs.db
 # 캐시 디렉터리 (ruff, pytest 등)
 *_cache
 
-# 툴 런타임 상태 (OMC 등)
+# 툴 런타임 상태
 .o*

@@ -18,11 +18,12 @@
 
 Claude Code의 Stop 훅은 작업이 끝나려는 순간에 실행됩니다. 여기서 검증 명령을 부르고, 실패하면 모델이 결과를 보고 한 번 더 수정합니다. "테스트는 통과했어요"라는 말 대신, 실제 실행 결과 텍스트가 모델에게 다시 들어가게 만드는 것이 핵심입니다.
 
-검증 명령은 너무 길어지지 않게 유지합니다. 한 번에 30초~1분 안에 끝나야 모델이 짧은 수정-검증 루프를 돌 수 있습니다.
+검증 명령은 너무 길어지지 않게 유지합니다. 
+한 번에 30초~1분 안에 끝나야 모델이 짧은 수정-검증 루프를 돌 수 있습니다.
 
 ## Codex를 쓴다면
 
-Codex Stop 훅도 같은 자리에서 검증 명령을 부를 수 있고, 실패 시 Codex가 한 번 더 이어서 작업하도록 신규 프롬프트가 생성됩니다. 촬영일 기준 Codex 훅은 6개 이벤트(SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, Stop)를 중심으로 동작하며, PreToolUse는 Bash와 apply_patch(파일 편집), MCP 도구 호출을 가로챕니다. 단 모든 셸 호출이 잡히는 것은 아니므로, 같은 검증을 Stop 훅과 CI에서 한 번 더 잡는 3중 안전망 패턴을 유지합니다.
+Codex Stop 훅도 같은 자리에서 검증 명령을 부를 수 있고, 실패 시 Codex가 한 번 더 이어서 작업하도록 신규 프롬프트가 생성됩니다. Codex 훅은 6개 이벤트(SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, Stop)를 중심으로 동작하며, PreToolUse는 Bash와 apply_patch(파일 편집), MCP 도구 호출을 가로챕니다. 단 모든 셸 호출이 잡히는 것은 아니므로, 같은 검증을 Stop 훅과 CI에서 한 번 더 잡는 3중 안전망 패턴을 유지합니다.
 
 검증 명령은 운영체제와 사용자 환경 차이를 줄이기 위해 항상 저장소 안의 같은 파일을 호출하도록 둡니다.
 
@@ -66,7 +67,7 @@ Stop 훅은 `agent_verify.sh`를 직접 호출하지 않고 `stop_verify_hook.py
 
 ### 한 단계 더 나아가기 — 테스트 에이전트가 훅에서 스킬을 호출하는 회로
 
-지금까지의 검증 루프는 "Stop 훅 래퍼가 셸 스크립트(`agent_verify.sh`)를 부른다" 패턴이었습니다. 하네스 엔지니어링 관점에서 한 단계 더 들어가면, **Claude Code Stop 훅의 `agent` handler 자리에 테스트 전용 에이전트를 두고, 그 에이전트가 우리 스킬을 호출하는** 회로를 만들 수 있습니다. 이 방식은 Claude Code 쪽의 심화·실험 기능으로 소개하고, Codex에서는 현재 같은 역할을 `command` hook 스크립트로 표현합니다. 요즘IT 매거진의 "하네스 엔지니어링"(꼼비, 2026-04)에서는 이 자리를 **Assayer(감정사)** — 테스트 생성·검증을 맡는 에이전트로 명명합니다.
+지금까지의 검증 루프는 "Stop 훅 래퍼가 셸 스크립트(`agent_verify.sh`)를 부른다" 패턴이었습니다. 하네스 엔지니어링 관점에서 한 단계 더 들어가면, **Claude Code Stop 훅의 `agent` handler 자리에 테스트 전용 에이전트를 두고, 그 에이전트가 우리 스킬을 호출하는** 회로를 만들 수 있습니다. 이 방식은 Claude Code 쪽의 심화·실험 기능으로 소개하고, Codex에서는 현재 같은 역할을 `command` hook 스크립트로 표현합니다. 이 자리는 **Assayer(감정사)** — 테스트 생성·검증을 맡는 에이전트로 명명합니다.
 
 흐름:
 
