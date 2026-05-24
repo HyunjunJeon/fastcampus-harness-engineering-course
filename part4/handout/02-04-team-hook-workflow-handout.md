@@ -17,19 +17,22 @@
 
 ## Claude Code를 쓴다면
 
-Claude Code에서는 `CLAUDE.md`, Skills, Hooks, Settings가 서로 다른 역할을 맡습니다. `CLAUDE.md`에는 팀의 기본 작업 방식, Skills에는 반복 업무 절차, Hooks에는 자동 확인 절차, Settings에는 권한과 도구 설정을 둡니다.
+Claude Code에서는 `CLAUDE.md`, Skills, Hooks, Settings가 서로 다른 역할을 맡습니다. 
+`CLAUDE.md`에는 팀의 기본 작업 방식, Skills에는 반복 업무 절차, Hooks에는 자동 확인 절차, 
+Settings에는 권한과 도구 설정을 둡니다.
 
-한 파일에 모든 규칙을 넣으면 처음에는 편하지만 나중에 유지보수가 어려워집니다.
+한 파일에 모든 규칙을 넣으면 처음에는 편하지만 나중에 유지보수가 어려워지고 Context Rot 이 발생해 
+결과물의 퀄리티가 떨어집니다.
 
 ## Codex를 쓴다면
 
-Codex에서는 `AGENTS.md`, Skills, Hooks, Rules를 함께 설계합니다. `AGENTS.md`는 저장소 공통 지침, Skills는 반복 작업, Hooks는 이벤트 기반 확인, Rules는 sandbox 밖 명령의 허용·승인·차단 기준으로 나누는 방식이 자연스럽습니다.
-
-Codex App을 쓰는 팀은 UI에서 확인 가능한 변경 목록과 CLI 검증 명령을 함께 정리합니다.
+Codex에서는 `AGENTS.md`, Skills, Hooks, Rules를 함께 설계합니다. 
+`AGENTS.md`는 저장소 공통 지침, Skills는 반복 작업, Hooks는 이벤트 기반 확인, 
+Rules는 sandbox 밖 명령의 허용·승인·차단 기준으로 나누는 방식이 자연스럽습니다.
 
 ## Agent OS 관점에서 사람의 역할
 
-이 세션에서 코드는 사람이 처음부터 직접 작성하는 대상이 아닙니다.
+이 강의에서 코드는 사람이 처음부터 직접 작성하는 대상이 아닙니다.
 AI Agent가 코드를 만들고 고치며 검증 명령까지 실행합니다. 
 사람의 일은 더 앞과 뒤로 이동합니다.
 
@@ -68,52 +71,156 @@ Agent OS 방식에서는 Agent가 작성한 코드가 팀 운영 규칙을 실�
 
 ## Reference
 
-아래 공식 문서 링크는 촬영일과 강의 운영일에 다시 확인하세요.
-
 - 공식 (Claude Code): [Hooks](https://code.claude.com/docs/en/hooks)
 - 공식 (Claude Code): [Settings](https://code.claude.com/docs/en/settings)
 - 공식 (Claude Code): [GitHub Actions](https://code.claude.com/docs/en/github-actions)
+- Claude Blog [How Claude Code works in large codebases: Best practices and where to start](https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start)
 - 공식 (Codex): [Hooks](https://developers.openai.com/codex/hooks)
 - 공식 (Codex): [Rules](https://developers.openai.com/codex/rules)
 
-## 실습
+## 실습 내용 설명
 
-실습 레포 위치: `part4/lab/docs/`, `part4/lab/scripts/`, `part4/lab/.claude/settings.json`, `part4/lab/.codex/hooks.json`, `part4/lab/.github/workflows/verify.yml`
+## 설계 방향성
 
-3중 안전망 — 공통 스크립트 한 벌, 도구별 훅 설정 두 벌, CI 한 벌.
+핵심은 **팀 정책은 한 번만 정의하고**, Claude Code와 Codex는 그 정책을 서로 다른 훅 설정으로 호출하게 만드는 구조입니다. Claude Code는 프로젝트 공유 설정인 `.claude/settings.json`과 개인용 `.claude/settings.local.json`의 경계를 공식적으로 제공하고, 훅 matcher는 `Bash`, `Edit|Write`, `SessionStart` 같은 이벤트/도구 기준으로 동작합니다. ([Claude Code][1]) Codex도 `hooks.json` 또는 `config.toml` 기반 훅을 지원하지만, 프로젝트 `.codex/` 레이어는 신뢰된 경우에만 로드되고, non-managed command hook은 변경 시 review/trust가 필요합니다. ([OpenAI Developers][2])
 
+패키지 구조는 다음과 같습니다.
+
+```text
+part4/lab/
+  CLAUDE.md
+  AGENTS.md
+
+  docs/
+    team-agent-policy.md
+    architecture.md
+    api-contract.md
+    hook-review-checklist.md
+
+  policy/
+    agent-policy.json
+
+  scripts/
+    hook_common.py
+    risky_command_policy.py
+    post_file_change_hook.py
+    pre_commit_guard.py
+    pre_pr_guard.py
+    stop_verify_hook.py
+    session_context_hook.py
+    user_prompt_guard.py
+    changed_docs_check.py
+    project_fast_check.sh
+    agent_verify.sh
+    smoke_test_hooks.sh
+
+  .claude/
+    settings.json
+    settings.local.example.json
+    skills/team-agent-workflow/SKILL.md
+
+  .codex/
+    hooks.json
+    config.toml
+    rules/default.rules
+
+  .agents/
+    skills/team-agent-workflow/SKILL.md
+
+  .github/
+    workflows/verify.yml
+    CODEOWNERS
+    RULESETS.md
 ```
-공통 정책 스크립트
-  scripts/risky_command_policy.py
-  scripts/post_file_change_hook.py
-  scripts/agent_verify.sh
-  scripts/stop_verify_hook.py
-  scripts/changed_docs_check.py
 
-Claude Code 설정
-  .claude/settings.json
+## 팀 / 프로젝트 / 개인 관리 경계
 
-Codex 설정
-  .codex/hooks.json
-  .codex/config.toml
+| 영역       | 팀/조직 관리                              | 프로젝트 관리                                                  | 개인 관리                                                |
+| -------- | ------------------------------------ | -------------------------------------------------------- | ---------------------------------------------------- |
+| 기본 작업 방식 | 조직 Agent 정책, 보안 원칙                   | `CLAUDE.md`, `AGENTS.md`, `docs/*.md`                    | 개인 메모, 개인 prompt                                     |
+| 반복 절차    | 공통 Skill 템플릿                         | `.claude/skills/**`, `.agents/skills/**`                 | `~/.claude/skills`, 개인 skill                         |
+| 훅 실행     | managed settings, requirements, 보안 훅 | `.claude/settings.json`, `.codex/hooks.json`             | `.claude/settings.local.json`, `~/.codex/hooks.json` |
+| 명령 승인    | 조직 차단 정책                             | `policy/agent-policy.json`, `.codex/rules/default.rules` | 개인 allow rule, 단 팀 정책 약화 금지                          |
+| 최종 게이트   | GitHub Rulesets, required CI         | `.github/workflows/verify.yml`, CODEOWNERS               | 없음                                                   |
 
-CI 설정
-  .github/workflows/verify.yml
+Skills는 반복 절차에만 두었습니다. Claude Code는 `SKILL.md` 기반 skill을 필요할 때 로드하는 방식이어서 긴 반복 절차를 `CLAUDE.md`에 계속 누적하지 않는 편이 낫고, Codex도 `SKILL.md`를 가진 skill directory를 재사용 워크플로우 단위로 인식합니다. ([Claude Code][3])
+
+## 실제 훅 매핑
+
+| 단계          | Claude Code                                     | Codex                                           | 공통 실행 파일                   |
+| ----------- | ----------------------------------------------- | ----------------------------------------------- | -------------------------- |
+| 작업 시작 전     | `SessionStart`                                  | `SessionStart`                                  | `session_context_hook.py`  |
+| 사용자 요청 제출 전 | `UserPromptSubmit`                              | `UserPromptSubmit`                              | `user_prompt_guard.py`     |
+| 명령/파일 변경 전  | `PreToolUse`                                    | `PreToolUse`                                    | `risky_command_policy.py`  |
+| 승인 요청 시점    | `PermissionRequest`                             | `PermissionRequest`                             | `risky_command_policy.py`  |
+| 파일 변경 직후    | `PostToolUse`                                   | `PostToolUse`                                   | `post_file_change_hook.py` |
+| 커밋 전        | `PreToolUse`에서 `git commit` self-filter         | `PreToolUse`에서 `git commit` self-filter         | `pre_commit_guard.py`      |
+| PR 전        | `PreToolUse`에서 `gh pr create/merge` self-filter | `PreToolUse`에서 `gh pr create/merge` self-filter | `pre_pr_guard.py`          |
+| Agent 종료 전  | `Stop`                                          | `Stop`                                          | `stop_verify_hook.py`      |
+| 최종 병합 게이트   | GitHub Actions + Rulesets                       | GitHub Actions + Rulesets                       | `agent_verify.sh`          |
+
+Claude Code 쪽은 `PreToolUse`에서 `deny`, `ask`, `allow`류 결정을 더 직접적으로 표현할 수 있습니다. 반면 Codex의 `PreToolUse`는 현재 `deny`는 가능하지만 `permissionDecision: "ask"`는 아직 지원되지 않으므로, 패키지에서는 Codex의 승인성 작업을 `.codex/rules/default.rules`와 `PermissionRequest` 흐름으로 분리했습니다. ([Claude Code][1])
+
+## 들어 있는 정책
+
+`policy/agent-policy.json`에 공통 정책을 넣었습니다.
+
+```json
+{
+  "protected_paths": [
+    ".env",
+    ".env.*",
+    "secrets/**",
+    "**/*.pem",
+    "**/*.key"
+  ],
+  "governed_paths": [
+    ".github/workflows/**",
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    ".codex/rules/**",
+    "policy/**",
+    "scripts/*hook*.py",
+    "scripts/agent_verify.sh"
+  ],
+  "deny_command_patterns": [
+    "rm -rf / 계열",
+    "curl|wget pipe-to-shell",
+    "chmod -R 777",
+    "git push --force",
+    "secret read",
+    "disk format"
+  ],
+  "approval_command_patterns": [
+    "git push",
+    "publish/release",
+    "terraform/kubectl/pulumi",
+    "production DB",
+    "history rewrite",
+    "PR merge"
+  ]
+}
 ```
 
-CI에서는 같은 `agent_verify.sh`를 required status check로 걸어, AI가 만든 PR이든 사람이 만든 PR이든 같은 게이트를 통과하게 합니다. 로컬 PostToolUse 훅에서는 `post_file_change_hook.py`가 저장 직후 빠른 포맷·린트·테스트를 실행하고, Stop 훅에서는 `stop_verify_hook.py`가 `agent_verify.sh`를 호출해 실패 시 에이전트 루프를 한 번 더 이어 가게 합니다. 강의에서는 **GitHub Rulesets** 중심으로 시연합니다(branch protection rule도 같은 옵션을 제공하므로 조직 상황에 맞춰 어느 쪽이든 적용 가능). 우리 `verify.yml`의 `jobs.verify`가 그대로 체크 이름이 되므로 Rulesets 화면에서 같은 문자열로 찾아 required로 켭니다.
+Codex 쪽은 `.codex/rules/default.rules`에도 sandbox 밖 명령 기준을 별도로 넣었습니다. Codex Rules는 `.rules` 파일의 `prefix_rule()`로 `allow`, `prompt`, `forbidden`을 정의하며, 공식 문서상 아직 experimental로 안내되어 있어 훅 정책 엔진과 CI를 함께 둔 3중 안전망으로 설계([OpenAI Developers][4])
 
-같은 자리에서 함께 켜는 6가지 방어 — `Require PR before merging`, `Require status checks to pass`, `Block force pushes`, `Restrict deletions`, `Restrict file paths`(예: `.env`, `secrets/**` 차단), `Require signed commits`(옵션). 자세한 적용 가이드는 `part4/lab/.github/RULESETS.md`를 참고하세요. 챕터 3-2(AI 협업 Git 운영 규칙)에서 본격적으로 다룹니다.
+## GitHub 안전망
 
-Python 훅 구현 리뷰는 아래 순서로 합니다.
+`.github/workflows/verify.yml`의 job 이름은 `verify`입니다. GitHub Rulesets에서 required status check로 `verify`를 지정하면, AI Agent가 만든 PR이든 사람이 만든 PR이든 같은 `scripts/agent_verify.sh`를 통과해야 merge됩니다. GitHub Rulesets/branch protection은 required status checks, force push 차단, deletion 제한 같은 병합 게이트를 제공하고, push rulesets는 특정 파일 경로 push 차단에 사용할 수 있습니다. ([GitHub Docs][5])
 
-1. 입력: hook payload에서 무엇을 읽는가.
-2. 결정: allow, deny, block, 계속 작업 요청을 어떤 조건에서 반환하는가.
-3. 실패 행동: stderr, exit code, 로그가 사람이 읽을 수 있는가.
-4. 우회 가능성: 로컬 훅으로 못 잡는 경우를 CI와 Rulesets가 다시 잡는가.
+## 적용
 
-비개발 트랙에서는 아래 세 문서를 사람이 읽고 수정할 수 있는 계약서로 다룹니다.
+```bash
+chmod +x scripts/*.py scripts/*.sh
+bash scripts/agent_verify.sh --fast
+bash scripts/agent_verify.sh
+bash scripts/smoke_test_hooks.sh
+```
 
-- `docs/team-agent-policy.md` — 사람과 Agent의 역할, 승인 기준
-- `docs/architecture.md` — 훅, 스크립트, CI, Rulesets의 연결 구조
-- `docs/api-contract.md` — 개발자 트랙에서 코드가 바뀔 때 함께 확인할 공개 동작 계약
+Claude Code에서는 프로젝트에서 `/hooks`로 hook 로딩 상태를 확인하고, Codex에서는 프로젝트 `.codex/` 레이어를 trust한 뒤 `/hooks`에서 hook review/trust 상태를 확인하는 흐름으로 운영하면 됩니다. 패키지 내부 스크립트, JSON/TOML, shell syntax, smoke test는 검증해 두었습니다. 실제 조직 적용 시에는 GitHub Rulesets 화면에서 `verify` required check와 민감 파일 path restriction만 추가로 켜면 됩니다.
+
+[1]: https://code.claude.com/docs/en/hooks "Hooks reference - Claude Code Docs"
+[2]: https://developers.openai.com/codex/hooks "Hooks – Codex | OpenAI Developers"
+[3]: https://code.claude.com/docs/ko/skills "Claude를 skills로 확장하기 - Claude Code Docs"
+[4]: https://developers.openai.com/codex/rules "Rules – Codex | OpenAI Developers"
+[5]: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets?utm_source=chatgpt.com "Available rules for rulesets"

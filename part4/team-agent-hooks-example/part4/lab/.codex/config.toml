@@ -1,0 +1,9 @@
+# Project-scoped Codex configuration.
+# Keep lifecycle hooks in .codex/hooks.json. If inline [hooks] are added here,
+# Codex will load both and warn, so use one representation per layer.
+
+[features]
+hooks = true
+
+# Project-local hooks and rules are loaded only after the project .codex layer is trusted.
+# Personal preferences belong in ~/.codex/config.toml, not here.

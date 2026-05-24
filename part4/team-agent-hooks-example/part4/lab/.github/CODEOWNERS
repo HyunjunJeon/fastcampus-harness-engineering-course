@@ -1,0 +1,11 @@
+# Agent governance files need platform review.
+/.claude/settings.json @platform-agent-governance
+/.codex/hooks.json @platform-agent-governance
+/.codex/config.toml @platform-agent-governance
+/.codex/rules/** @platform-agent-governance
+/policy/** @platform-agent-governance
+/scripts/*hook*.py @platform-agent-governance
+/scripts/risky_command_policy.py @platform-agent-governance
+/scripts/agent_verify.sh @platform-agent-governance
+/.github/workflows/** @platform-agent-governance
+/.github/RULESETS.md @platform-agent-governance

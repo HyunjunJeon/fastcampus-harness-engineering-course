@@ -1,0 +1,100 @@
+# Team baseline rules for commands Codex wants to run outside the sandbox.
+# Rules are prefix-based and complement, not replace, the Python hook policy.
+
+prefix_rule(
+    pattern = ["git", "status"],
+    decision = "allow",
+    justification = "Read-only repository inspection is safe.",
+    match = ["git status", "git status --short"],
+)
+
+prefix_rule(
+    pattern = ["git", "diff"],
+    decision = "allow",
+    justification = "Read-only diff inspection is safe.",
+    match = ["git diff", "git diff --cached"],
+)
+
+prefix_rule(
+    pattern = ["git", "log"],
+    decision = "allow",
+    justification = "Read-only history inspection is safe.",
+    match = ["git log --oneline -5"],
+)
+
+prefix_rule(
+    pattern = ["bash", "scripts/agent_verify.sh"],
+    decision = "allow",
+    justification = "Shared verifier is the project gate.",
+    match = ["bash scripts/agent_verify.sh", "bash scripts/agent_verify.sh --fast"],
+)
+
+prefix_rule(
+    pattern = ["python3", "scripts/changed_docs_check.py"],
+    decision = "allow",
+    justification = "Docs contract check is deterministic and read-only.",
+    match = ["python3 scripts/changed_docs_check.py"],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Pushing code requires human approval and branch protection.",
+    match = ["git push", "git push origin feature/x"],
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "create"],
+    decision = "prompt",
+    justification = "PR creation requires evidence review.",
+    match = ["gh pr create --fill", "gh pr create --title x --body y"],
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "prompt",
+    justification = "Merging is a human-owned approval action.",
+    match = ["gh pr merge 12 --squash"],
+)
+
+prefix_rule(
+    pattern = ["npm", "publish"],
+    decision = "prompt",
+    justification = "Publishing requires release approval.",
+    match = ["npm publish"],
+)
+
+prefix_rule(
+    pattern = ["docker", "push"],
+    decision = "prompt",
+    justification = "Publishing container images requires release approval.",
+    match = ["docker push ghcr.io/acme/app:1.2.3"],
+)
+
+prefix_rule(
+    pattern = ["kubectl"],
+    decision = "prompt",
+    justification = "Cluster operations require operator approval.",
+    match = ["kubectl apply -f deploy.yaml", "kubectl delete pod x"],
+)
+
+prefix_rule(
+    pattern = ["terraform", "apply"],
+    decision = "prompt",
+    justification = "Infrastructure mutation requires approval.",
+    match = ["terraform apply"],
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf", "/"],
+    decision = "forbidden",
+    justification = "Destructive root deletion is never allowed.",
+    match = ["rm -rf /"],
+)
+
+prefix_rule(
+    pattern = ["chmod", "-R", "777"],
+    decision = "forbidden",
+    justification = "Recursive world-writable permissions are not allowed.",
+    match = ["chmod -R 777 ."],
+)

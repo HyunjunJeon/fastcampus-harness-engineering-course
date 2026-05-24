@@ -1,0 +1,147 @@
+{
+  "version": "2026-05-24",
+  "owner": "platform-agent-governance",
+  "protected_paths": [
+    ".env",
+    ".env.*",
+    "**/.env",
+    "**/.env.*",
+    "secrets/**",
+    "**/secrets/**",
+    "*.pem",
+    "*.key",
+    "**/*.pem",
+    "**/*.key",
+    "**/id_rsa",
+    "**/id_ed25519"
+  ],
+  "governed_paths": [
+    ".github/workflows/**",
+    ".github/RULESETS.md",
+    ".github/CODEOWNERS",
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    ".codex/config.toml",
+    ".codex/rules/**",
+    "policy/**",
+    "scripts/*hook*.py",
+    "scripts/risky_command_policy.py",
+    "scripts/agent_verify.sh",
+    "docs/team-agent-policy.md",
+    "docs/architecture.md"
+  ],
+  "deny_command_patterns": [
+    {
+      "id": "remove-root",
+      "regex": "\\brm\\s+-[^\\n;]*r[^\\n;]*f[^\\n;]*(?:/|~|\\$HOME)(?:\\s|$)",
+      "reason": "root/home destructive removal is forbidden"
+    },
+    {
+      "id": "curl-pipe-shell",
+      "regex": "\\b(curl|wget)\\b[^\\n;|]*(\\||>)\\s*(sudo\\s+)?(sh|bash|zsh)\\b",
+      "reason": "network pipe-to-shell is forbidden"
+    },
+    {
+      "id": "chmod-777",
+      "regex": "\\bchmod\\s+-R\\s+777\\b",
+      "reason": "recursive chmod 777 is forbidden"
+    },
+    {
+      "id": "force-push",
+      "regex": "\\bgit\\s+push\\b[^\\n;]*(--force\\b|-f\\b)",
+      "reason": "force push is forbidden; use protected branch workflow"
+    },
+    {
+      "id": "secret-read",
+      "regex": "\\b(cat|less|more|head|tail|grep|rg|awk|sed)\\b[^\\n;]*(\\.env|secrets/|id_rsa|id_ed25519|\\.pem|\\.key)\\b",
+      "reason": "reading secrets through agent tools is forbidden"
+    },
+    {
+      "id": "disk-format",
+      "regex": "\\b(mkfs|dd\\s+if=|diskutil\\s+erase|format\\s+[A-Z]:)\\b",
+      "reason": "disk formatting/destructive block operations are forbidden"
+    }
+  ],
+  "approval_command_patterns": [
+    {
+      "id": "git-push",
+      "regex": "\\bgit\\s+push\\b",
+      "reason": "pushing code requires explicit human approval"
+    },
+    {
+      "id": "release-or-publish",
+      "regex": "\\b(npm\\s+publish|pnpm\\s+publish|yarn\\s+npm\\s+publish|twine\\s+upload|docker\\s+push|gh\\s+release\\s+create)\\b",
+      "reason": "publishing artifacts requires release approval"
+    },
+    {
+      "id": "infra-change",
+      "regex": "\\b(terraform\\s+apply|pulumi\\s+up|kubectl\\s+(apply|delete|rollout|scale)|helm\\s+(install|upgrade|uninstall)|aws\\s+cloudformation\\s+(deploy|delete-stack))\\b",
+      "reason": "infrastructure changes require operator approval"
+    },
+    {
+      "id": "prod-db",
+      "regex": "\\b(psql|mysql|mongosh|redis-cli)\\b[^\\n;]*(prod|production|staging)",
+      "reason": "shared database access requires approval"
+    },
+    {
+      "id": "history-rewrite",
+      "regex": "\\bgit\\s+(reset\\s+--hard|clean\\s+-fdx|rebase\\b)",
+      "reason": "history or working-tree rewrite requires approval"
+    },
+    {
+      "id": "pr-merge",
+      "regex": "\\bgh\\s+pr\\s+merge\\b",
+      "reason": "PR merge requires repository policy checks"
+    }
+  ],
+  "docs_sync_rules": [
+    {
+      "name": "public-api-contract",
+      "when_any": [
+        "src/api/**",
+        "app/api/**",
+        "apps/*/api/**",
+        "packages/*/src/api/**",
+        "openapi/**"
+      ],
+      "require_any": [
+        "docs/api-contract.md",
+        "openapi/**"
+      ],
+      "local_mode": "warn",
+      "ci_mode": "enforce"
+    },
+    {
+      "name": "agent-policy-contract",
+      "when_any": [
+        "scripts/*hook*.py",
+        "scripts/risky_command_policy.py",
+        "scripts/agent_verify.sh",
+        "policy/**",
+        ".claude/settings.json",
+        ".codex/hooks.json",
+        ".codex/rules/**"
+      ],
+      "require_any": [
+        "docs/team-agent-policy.md",
+        "docs/architecture.md"
+      ],
+      "local_mode": "warn",
+      "ci_mode": "enforce"
+    }
+  ],
+  "verification": {
+    "exclude_dirs": [
+      ".git",
+      "node_modules",
+      ".venv",
+      "venv",
+      "dist",
+      "build",
+      "coverage",
+      ".agent",
+      "__pycache__"
+    ],
+    "max_output_chars": 6000
+  }
+}

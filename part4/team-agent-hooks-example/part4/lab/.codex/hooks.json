@@ -1,0 +1,92 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/session_context_hook.py\" --runtime codex",
+            "timeout": 5,
+            "statusMessage": "Loading team agent policy"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/user_prompt_guard.py\" --runtime codex",
+            "timeout": 5,
+            "statusMessage": "Checking prompt against team policy"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/risky_command_policy.py\" --runtime codex",
+            "timeout": 10,
+            "statusMessage": "Checking command/path risk"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/pre_commit_guard.py\" --runtime codex",
+            "timeout": 180,
+            "statusMessage": "Checking pre-commit gate"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/pre_pr_guard.py\" --runtime codex",
+            "timeout": 300,
+            "statusMessage": "Checking PR readiness"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash|apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/risky_command_policy.py\" --runtime codex",
+            "timeout": 10,
+            "statusMessage": "Checking permission request"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/post_file_change_hook.py\" --runtime codex",
+            "timeout": 120,
+            "statusMessage": "Running post-change checks"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/stop_verify_hook.py\" --runtime codex",
+            "timeout": 300,
+            "statusMessage": "Running final verification"
+          }
+        ]
+      }
+    ]
+  }
+}

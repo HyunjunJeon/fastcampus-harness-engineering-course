@@ -1,0 +1,10 @@
+.agent/logs/
+.agent/state/
+.claude/settings.local.json
+.codex/local.toml
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+venv/

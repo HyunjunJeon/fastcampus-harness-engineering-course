@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "AGENT_POLICY_FILE": "policy/agent-policy.json",
+    "AGENT_POST_HOOK_FAST_VERIFY": "0"
+  },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | sh)",
+      "Bash(git push * --force*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh release create*)",
+      "Bash(npm publish*)",
+      "Bash(pnpm publish*)",
+      "Bash(twine upload*)",
+      "Bash(docker push*)",
+      "Bash(kubectl *)",
+      "Bash(terraform apply*)",
+      "Bash(pulumi up*)",
+      "Edit(.github/workflows/**)",
+      "Write(.github/workflows/**)",
+      "Edit(policy/**)",
+      "Write(policy/**)"
+    ],
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(python3 scripts/changed_docs_check.py*)",
+      "Bash(bash scripts/agent_verify.sh*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/session_context_hook.py --runtime claude",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/user_prompt_guard.py --runtime claude",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/risky_command_policy.py --runtime claude",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/pre_commit_guard.py --runtime claude",
+            "timeout": 180
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/pre_pr_guard.py --runtime claude",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/risky_command_policy.py --runtime claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/post_file_change_hook.py --runtime claude",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      // 팀장님: 우리 팀원들, Claude Code 또는 Codex 잘 쓰고 있나?
+      // >> 아 그러면, 모니터링 시스템(Langfuse, Langsmith, Arize AI)을 설정하는데 이걸 수동으로 할 수 없으니까. Stop 훅이 발동되면 
+      // 대화내용 전체를 저장해야겠다!
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/scripts/stop_verify_hook.py --runtime claude",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}
