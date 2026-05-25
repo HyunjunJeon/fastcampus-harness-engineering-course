@@ -3,7 +3,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ${CLAUDE_PROJECT_DIR}/scripts/post_file_change_hook.py"
+            "command": "python ${CLAUDE_PROJECT_DIR}/scripts/docs_impact_check.py --soft"
           }
         ]
       }

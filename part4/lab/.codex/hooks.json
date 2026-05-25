@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^Bash$",
+        "matcher": "^(Bash|apply_patch|Edit|Write)$",
         "hooks": [
           {
             "type": "command",
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$(git rev-parse --show-toplevel)/scripts/post_file_change_hook.py\""
+            "command": "python \"$(git rev-parse --show-toplevel)/scripts/docs_impact_check.py\" --soft"
           }
         ]
       }

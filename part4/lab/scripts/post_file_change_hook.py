@@ -72,7 +72,7 @@ def main() -> int:
     if (root / "app").is_dir():
         targets.append("app")
 
-    docs_check = run(["python", "scripts/changed_docs_check.py", "--soft"], root)
+    docs_check = run(["python", "scripts/docs_impact_check.py", "--soft"], root)
     if docs_check.returncode != 0:
         show_failure("docs check", docs_check)
         smoke_log(root, "failed:docs")

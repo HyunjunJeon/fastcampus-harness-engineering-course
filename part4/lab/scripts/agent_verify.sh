@@ -19,8 +19,8 @@ cd "$(dirname "$0")/.."
 echo "[verify] common skills links"
 bash scripts/sync_common_skills.sh --check
 
-echo "[verify] changed docs check"
-python scripts/changed_docs_check.py
+echo "[verify] docs impact report"
+python scripts/docs_impact_check.py --require-report
 
 if [[ "$DOCS_ONLY" -eq 1 ]]; then
   echo "[verify] docs-only mode: skipping code checks"

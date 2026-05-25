@@ -2,7 +2,7 @@
 
 이 문서는 `part4/lab/`을 GitHub에 올렸을 때 적용하는 정책 게이트의 권장 구성을 정리합니다. AI 액션을 required로 걸지 않고, **GitHub Rulesets로 결정적 게이트만 강제**하는 것이 강의의 권장 방향입니다.
 
-> 촬영일(2026-05-16) 기준 공식 문서에서 룰 이름과 동작 범위를 다시 확인하세요. GitHub은 Rulesets와 branch protection rule을 함께 운영합니다.
+> GitHub은 Rulesets와 branch protection rule을 함께 운영합니다.
 
 ## 권장 룰 6가지
 
@@ -64,4 +64,3 @@
 
 - 본 레포의 `.github/workflows/verify.yml` — required로 등록할 잡 (`jobs.verify`).
 - 본 레포의 `scripts/agent_verify.sh` — verify 잡이 실행하는 단일 진입점.
-- `part4/handout/03-02-ai-git-rules-handout.md` — 강의 본문과 시연 동선.

@@ -22,7 +22,8 @@ lab/
   .claude/skills/           # Claude Code 배포 (common_skills 링크)
   .agents/skills/           # Codex 배포 (common_skills 링크)
   .codex/                   # Codex 훅·설정
-  scripts/                  # 공통 검증·정책 스크립트와 Post/Stop 훅 래퍼
+  scripts/                  # 공통 검증·정책 스크립트, 문서 영향도 검사, Post/Stop 훅 래퍼
+  .agent/reports/           # 훅이 생성하는 문서 영향도 판단표 (gitignore)
   .github/workflows/        # CI 게이트
   docs/                     # 실습용 문서 (동기화 대상)
   app/                      # 개발자 트랙 샘플
@@ -49,6 +50,7 @@ bash scripts/agent_verify.sh
 ## 주의
 
 - `.claude/skills/`와 `.agents/skills/`는 `scripts/sync_common_skills.sh`로 `common_skills/`의 직계 스킬 폴더 링크를 동기화합니다. 링크 상태는 `scripts/agent_verify.sh`에서 매번 검사합니다.
+- 코드가 바뀌면 `scripts/docs_impact_check.py --soft`가 `.agent/reports/docs-impact.md` 판단표를 만들고, 완료 전 `scripts/docs_impact_check.py --require-report`가 사람이 검토할 항목이 채워졌는지 확인합니다.
 - Codex CLI에서 새 프로젝트 훅은 `/hooks` 화면에서 신뢰해야 실행됩니다. `PreToolUse`, `PostToolUse`, `Stop` 프로젝트 훅이 `Trusted`인지 확인한 뒤 실습하세요.
-- 실습 중 만지는 명령은 `scripts/risky_command_policy.py`의 차단 목록을 먼저 통과해야 합니다. 차단되면 멈춰서 사람이 확인하는 것이 기본 동작입니다.
+- 실습 중 만지는 명령은 `scripts/risky_command_policy.py`의 차단 목록을 먼저 통과해야 합니다. `git push`, `git reset --hard`, 보호 브랜치 force push, 비밀 파일 쓰기는 hook payload 시뮬레이션으로만 확인하고 실제로 실행하지 않습니다.
 - 이 레포는 강의 자료입니다. 실제 운영 코드로 사용하지 마세요.

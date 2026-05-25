@@ -4,3 +4,4 @@ __pycache__/
 .mypy_cache/
 logs/
 hook_smoke_*.txt
+.agent/reports/

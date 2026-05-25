@@ -18,8 +18,8 @@
 | 분류 | 예시 | 기본 행동 | 사람의 판단 기준 |
 |---|---|---|---|
 | 자동 허용 | `git diff`, `python -m pytest`, `bash scripts/agent_verify.sh --docs-only` | 실행 가능 | 읽기/검증 중심이고 되돌리기 쉬운가 |
-| 승인 필요 | `git push`, dependency 설치, 외부 API 호출 | 멈추고 확인 | 저장소 밖에 영향을 주는가 |
-| 기본 차단 | `.env` 읽기, 토큰 출력, `rm -rf /`, 보호 브랜치 force push, 운영 배포 | 실행 금지 | 비밀·데이터·운영 환경을 위험하게 하는가 |
+| 승인 필요 | `git push`, `git reset --hard`, dependency 설치, 외부 API 호출 | 훅이 멈추고 사람 승인 메시지를 출력 | 저장소 밖에 영향을 주거나 기록을 되돌리는가 |
+| 기본 차단 | `.env` 읽기/쓰기, 토큰 출력, `rm -rf /`, 보호 브랜치 force push, 운영 배포 | 실행 금지 | 비밀·데이터·운영 환경을 위험하게 하는가 |
 
 ## 실습 운영 기준
 
@@ -35,6 +35,7 @@
 |---|---|---|
 | 위험 명령을 실제 실행 전에 막는가 | `scripts/risky_command_policy.py` | deny JSON과 exit code 2가 나온다 |
 | 허용 가능한 읽기/검증 명령은 통과하는가 | `scripts/risky_command_policy.py` | allow 결정이 나온다 |
+| Git 운영 규칙이 payload만으로 검증되는가 | `tests/test_risky_command_policy.py` | push, force push, reset, secret write가 차단된다 |
 | 파일 변경 뒤 너무 무거운 검사를 돌리지 않는가 | `scripts/post_file_change_hook.py` | 작업 중 검증은 빠른 피드백 중심이다 |
 | Agent가 검증 실패를 무시하고 끝내지 않는가 | `scripts/stop_verify_hook.py` | 실패 시 계속 작업하게 만든다 |
 | 사람과 CI가 같은 명령을 쓰는가 | `scripts/agent_verify.sh` | 로컬과 CI의 검증 진입점이 같다 |

@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git checkout -- app/services.py && echo \\\"복원 완료\\\" && git status app/services.py\",\"description\":\"Restore services.py to original state\"}",
-  "error": "Exit code 1\nerror: pathspec 'app/services.py' did not match any file(s) known to git",
-  "timestamp": "2026-05-21T12:53:44.089Z",
-  "retry_count": 1
-}

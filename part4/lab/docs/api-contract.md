@@ -18,10 +18,12 @@
 
 ## 문서 동기화 기준
 
-`app/` 또는 `tests/`가 바뀌면 다음 중 하나가 필요합니다.
+`app/`, `tests/`, `scripts/`가 바뀌면 다음 중 하나가 필요합니다.
 
 - 공개 동작이 바뀐 경우: 이 문서의 계약과 예시를 갱신합니다.
-- 공개 동작이 바뀌지 않은 경우: PR 설명에 "문서 변경 불필요"와 그 이유를 적습니다.
+- 공개 동작이 바뀌지 않은 경우: `.agent/reports/docs-impact.md`의 문서 영향도 판단표에 "문서 변경 불필요"와 그 이유를 적습니다.
+
+`bash scripts/agent_verify.sh`는 `scripts/docs_impact_check.py --require-report`를 실행해 판단표가 있는지, 문서 수정 필요 여부와 사람 확인 방법이 비어 있지 않은지 확인합니다.
 
 ## 검증 명령
 
@@ -36,4 +38,3 @@ bash scripts/agent_verify.sh --docs-only
 ```bash
 bash scripts/agent_verify.sh
 ```
-

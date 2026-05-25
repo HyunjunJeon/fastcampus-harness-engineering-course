@@ -17,8 +17,9 @@
 |---|---|---|
 | 프로젝트 지시문 | `CLAUDE.md`, `AGENTS.md` | 팀의 기본 작업 방식과 금지 행동 |
 | 도구별 hook 설정 | `.claude/settings.json`, `.codex/hooks.json` | Claude Code와 Codex가 같은 스크립트를 호출하게 연결 |
-| 공통 정책·검증 | `scripts/risky_command_policy.py`, `scripts/agent_verify.sh` | 위험 명령 분류와 최종 검증 |
-| 작업 중 빠른 확인 | `scripts/post_file_change_hook.py` | 파일 변경 뒤 포맷·문서 동기화·빠른 테스트 확인 |
+| 작업 전 차단 | `scripts/risky_command_policy.py` | 위험한 Git 명령과 비밀 파일 경로를 실행 전에 차단 |
+| 공통 정책·검증 | `scripts/docs_impact_check.py`, `scripts/agent_verify.sh` | 문서 영향도 판단표, 최종 검증 |
+| 작업 중 빠른 확인 | `scripts/docs_impact_check.py --soft`, `scripts/post_file_change_hook.py` | 파일 변경 뒤 문서 영향도 판단표 생성과 빠른 테스트 확인 |
 | 종료 전 확인 | `scripts/stop_verify_hook.py` | Agent가 끝났다고 말하기 전에 `agent_verify.sh` 실행 |
 | 공유 저장소 게이트 | `.github/workflows/verify.yml`, `.github/RULESETS.md` | PR/merge 전에 같은 기준을 다시 강제 |
 
@@ -31,11 +32,13 @@
 - `docs/team-agent-policy.md`: 사람이 결정할 정책과 승인 기준
 - `scripts/agent_verify.sh --docs-only`: 문서·스킬 링크 수준의 저위험 검증
 - `scripts/risky_command_policy.py`: Agent가 작성한 정책 구현이 입력에 따라 어떤 결정을 내리는지
+- `tests/test_risky_command_policy.py`: Git push, force push, reset, secret write를 실제 실행 없이 payload로 검증
 - `.github/RULESETS.md`: PR merge 전에 사람이 기대할 저장소 정책
 
 ## 개발자 트랙에서 추가로 볼 것
 
 - `app/`, `tests/`: Agent가 실제 코드를 바꾸는 대상
+- `scripts/docs_impact_check.py`: 코드 변경 뒤 `.agent/reports/docs-impact.md` 판단표를 만들고 완료 전 검증
 - `scripts/post_file_change_hook.py`: 파일 변경 직후 빠른 검증
 - `scripts/stop_verify_hook.py`: 검증 실패 시 Agent 루프를 계속하게 하는 종료 훅
 - 전체 `bash scripts/agent_verify.sh`: format, lint, typecheck, tests
