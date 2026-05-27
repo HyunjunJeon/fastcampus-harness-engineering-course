@@ -1,0 +1,4 @@
+# Keep shell scripts LF so they run under bash on Windows checkouts.
+# The repo has core.autocrlf=true, which would otherwise rewrite *.sh to CRLF
+# and break the shebang (`/usr/bin/env bash\r: bad interpreter`).
+*.sh text eol=lf
