@@ -366,7 +366,7 @@ bash scripts/check.sh --session 01-02  # 검증
 
 ---
 
-## Lab Walkthrough: 01-02 역할 파일 생성과 검증 계약 확인
+## 4.1 Lab Walkthrough: 01-02 역할 파일 생성과 검증 계약 확인
 
 ### 사전 정리 — 파일 실제 위치
 
