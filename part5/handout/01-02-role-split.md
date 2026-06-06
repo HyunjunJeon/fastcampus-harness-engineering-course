@@ -413,7 +413,7 @@ grep -n "Do not modify files" .claude/agents/explorer.md
 10:- Do not modify files.
 ```
 
-이 문구는 Explorer의 body rule입니다. frontmatter의 `tools` 목록에는 `Read, Grep, Glob, Bash`만 있고 `Edit`, `Write`, `MultiEdit`은 없습니다. 그러나 `Bash`가 남아 있으므로 "수정 금지"는 완전한 hard boundary가 아니라 soft boundary다. 이 설계상 한계는 2.1절에서 의도적으로 노출합니다.
+이 문구는 Explorer의 body rule입니다. frontmatter의 `tools` 목록에는 `Read, Grep, Glob, Bash`만 있고 `Edit`, `Write`, `MultiEdit`은 없습니다. 그러나 `Bash`가 남아 있으므로 "수정 금지"는 완전한 hard boundary가 아니라 soft boundary입니다. 이 설계상 한계는 2.1절에서 의도적으로 노출합니다.
 
 ### Step 3 — Verifier 판정 문구 확인
 
