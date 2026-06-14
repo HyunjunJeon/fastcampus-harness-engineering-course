@@ -1,4 +1,4 @@
-# Multi-Agent / SubAgents / Workflow Architecture의 현재 방향과 Context 한계 극복, Latency 대응 전략
+# Multi-Agent & SubAgents & Workflow Architecture
 
 ## 핵심 내용
 
@@ -974,7 +974,7 @@ Product development 자료도 Claude Managed Agents를, cloud-hosted agent를 �
 
 ---
 
-# 15. 권장 Implementation Roadmap
+# 15. Implementation Roadmap
 
 ## Phase 1. Single Agent + Context Discipline
 
@@ -1032,7 +1032,7 @@ Skills는 specialized prompt와 knowledge를 on-demand로 불러오는 구조이
 - source-specific subagents
 ```
 
-Router는 distinct verticals를 parallel로 query하고 synthesis하는 데 적합합니다. ([LangChain Docs][12])
+Router는 서로 구분되는 업무 영역을 병렬로 조회하고 결과를 종합하는 데 적합합니다. ([LangChain Docs][12])
 
 ## Phase 5. Async SubAgents
 
@@ -1048,9 +1048,7 @@ Async task registry, status check, cancel, update, notification을 반드시 포
 
 ## Phase 6. Custom Workflow / Agent Teams / Shared State
 
-다음 증상이 있으면 고급 패턴으로 진화합니다.
-
-| 증상                              | 진화                          |
+| 증상                              | Workflow 진화                          |
 | ------------------------------- | --------------------------- |
 | orchestrator 조건문이 비대해짐          | custom workflow / router    |
 | SubAgent가 매번 같은 context를 다시 학습  | agent teams                 |
@@ -1061,7 +1059,7 @@ Async task registry, status check, cancel, update, notification을 반드시 포
 
 ---
 
-# 16. 운영 지표와 Eval Harness
+# 16. 운영 지표와 Eval Harness 를 꼭 구성할 것
 
 ## 16.1 Latency / Cost Metrics
 
@@ -1128,7 +1126,7 @@ Async task registry, status check, cancel, update, notification을 반드시 포
 
 # 18. 최종 설계 원칙
 
-지금까지의 논의를 종합한 결론은 다음과 같습니다.
+지금까지의 내용을 종합한 결론은 다음과 같습니다.
 
 > **Multi-Agent System은 Agent의 집합이 아니라, Context를 분배하고 Workflow를 제어하며 Latency와 품질을 운영하는 Architecture입니다.**
 

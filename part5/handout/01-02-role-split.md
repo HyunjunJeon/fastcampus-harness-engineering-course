@@ -33,13 +33,26 @@
 | **Implementer** | 계획 범위 안에서만 구현 | 읽기 + 편집 | 변경 파일, 구현 요약, 테스트 명령 | 범위 확장, 임의 리팩터링, 테스트를 통과시키려고 테스트만 고치기 |
 | **Verifier** | 테스트·리뷰·완료 기준 확인 | 읽기·검색·실행 | pass/fail, 근거, 누락 조건 | 새 기능 구현 |
 
+### 1.0 역할 분리가 필요한 작업인지 먼저 판단하기
+
+역할 분리는 기본값이 아닙니다. 다음 질문에 하나라도 해당할 때 도입합니다.
+
+| 판단 질문 | Yes → | No → |
+| --- | --- | --- |
+| 단일 agent로 처리할 수 있는가? | 역할 분리 불필요 | 분리 검토 |
+| 탐색 결과가 main context를 오염시키는가? | Explorer 격리 | 단일 agent 유지 |
+| 탐색·구현·검증을 병렬로 처리해야 하는가? | 역할 분리 유효 | sequential 처리로 충분 |
+| 품질 기준(Done Criteria)이 명확히 정의되어 있는가? | Verifier 투입 가능 | Verifier 투입 시기상조 |
+
+> 역할 이름을 붙이기 전에 "이 작업이 single agent로 안 되는 이유"를 먼저 확인해야 합니다.
+
 ### 1.1 역할 사이의 핸드오프 계약
 
 역할을 나눈 뒤에는 역할 **사이**에서 무엇이 오가는지가 핵심 과제입니다. 세 역할은 고립된 섬이 아니라 하나의 파이프라인이며, 그 사이를 흐르는 것은 **대화 스크롤백이 아니라 파일**이어야 합니다. (다음 세션 01-03의 context hygiene으로 이어집니다.)
 
 ```mermaid
 flowchart LR
-    E["Explorer<br/>(읽기 전용)"] -->|발견·근거·위험| S["메인 에이전트<br/>합성 + 결정"]
+    E["Explorer<br/>(읽기 전용)"] -->|발견·근거·위험| S["메인 에이전트<br/>선별 + 결정"]
     S -->|SPEC.md / PLAN.md / DONE_CRITERIA.md| I["Implementer<br/>(범위 내 편집)"]
     I -->|변경 파일·테스트 명령| V["Verifier<br/>(검증)"]
     V -->|pass/fail + 근거| S
@@ -51,9 +64,29 @@ flowchart LR
 | 단계 | 입력 | 출력(메인 컨텍스트에 남는 것) | 출력(파일로 외부화) |
 | --- | --- | --- | --- |
 | Explorer | "token refresh가 간헐적으로 실패합니다" | 근본 원인 후보, 근거 파일 경로, 위험 | `docs/decisions/token-refresh-investigation.md` |
-| 합성·결정 | Explorer 발견 | 확정된 접근(single-flight guard) | `SPEC.md`, `specs/001-token-refresh/plan.md` |
+| 선별·결정 | Explorer 발견 | 확정된 접근(single-flight guard), handoff 파일 인덱스 | `SPEC.md`, `specs/001-token-refresh/plan.md` |
 | Implementer | `SPEC.md` + `PLAN.md` + `DONE_CRITERIA.md` | 변경 파일 목록, 테스트 명령 | 코드 diff, `docs/current-state.md` |
 | Verifier | `SPEC.md` + `DONE_CRITERIA.md` | pass/fail + 근거 | `evals/harness-scorecard.md` |
+
+#### 핸드오프 파일은 Context Pack이어야 합니다
+
+핸드오프 파일은 단순 기록이 아니라, 다음 역할이 필요한 정보를 압축한 **Context Pack**입니다. Explorer가 Implementer에게 넘길 때는 다음 항목을 포함해야 합니다.
+
+```markdown
+## Context Pack: token-refresh 조사 결과
+
+- task_goal: 간헐적 token refresh 실패 원인 파악
+- relevant_facts:
+  - src/auth/refresh.ts 83번째 줄에서 race condition 발생 가능
+  - 테스트 커버리지 없음
+- constraints:
+  - SPEC.md의 single-flight guard 방식으로 구현
+  - src/auth/ 외부 파일 수정 금지
+- non_goals: UI 변경, 에러 메시지 리디자인
+- verification_rubric: DONE_CRITERIA.md 참고
+```
+
+이 형식이 있어야 Implementer가 "무엇을 해야 하는지"를 추론 없이 실행할 수 있습니다.
 
 ---
 
@@ -219,6 +252,33 @@ Always return EXACTLY this structure:
 4. Recommended implementation scope (not the implementation itself)
 ```
 
+
+운영 환경에서는 Verifier 출력 스키마도 명시해야 합니다.
+
+```markdown
+---
+name: verifier
+description: Use this agent to verify code changes against the spec and done criteria.
+tools: Read, Grep, Glob, Bash
+---
+
+You are the verification agent.
+
+Rules:
+- Do not implement unless explicitly asked.
+- Check against SPEC.md and DONE_CRITERIA.md.
+
+Always return EXACTLY this structure:
+1. verdict: Pass / Fail / Partial
+2. rubric_checked: 각 Done Criteria 항목별 Pass/Fail
+3. source_of_truth: 근거 파일 경로와 줄 번호
+4. required_tests: 실행한 테스트 명령과 결과
+5. severity: Critical / Major / Minor (Fail인 경우)
+6. open_gaps: 아직 확인되지 않은 항목
+```
+
+rubric 없이 "좋은지 확인해" 수준으로 Verifier를 쓰면 rubber-stamp가 됩니다(01-01 12.1절 참고).
+
 `tools`에서 `Bash`를 제거하면 2.1절의 soft boundary가 hard boundary로 승격됩니다.
 
 ---
@@ -267,6 +327,18 @@ Do not let multiple agents edit the same file concurrently.
 
 1. **조사·검증은 subagent로, 구현은 메인 스레드에 둡니다.** read-heavy 작업만 격리하고, 쓰기 작업은 한 곳에 모아 충돌을 피합니다.
 2. **여러 에이전트가 같은 파일을 동시에 수정하지 않습니다.** Codex 공식 문서도 "parallel write-heavy workflows는 충돌을 만들 수 있으니 주의하라"고 명시합니다.
+
+#### subagent 병렬화 판단 기준
+
+모든 작업을 subagent로 격리하면 latency와 coordination overhead가 늘어납니다. 다음 기준으로 판단합니다.
+
+| 작업 성격 | 권장 방식 |
+| --- | --- |
+| read-heavy (탐색·조사) | subagent로 격리 |
+| write-heavy (구현) | 메인 스레드에서 단일 owner |
+| 장시간 탐색 (codebase mapping 등) | async subagent (background) |
+| 즉시 검증이 필요한 경우 | sync verifier (결과 기다림) |
+| 여러 domain 병렬 조회 | router / fan-out |
 
 ### (B) 파일로 역할 정의하기 — 공식 옵션(확장)
 
@@ -356,6 +428,18 @@ part5/lab/
 }
 ```
 
+#### 결과물을 State / Artifact 관점으로 읽기
+
+01-01의 13장 개념으로 해석하면 각 산출물의 역할이 명확해집니다.
+
+| 파일 | 개념 | 역할 |
+| --- | --- | --- |
+| `docs/current-state.md` | State snapshot | 다음 세션이 이 파일만 읽고 이어갈 수 있는 현재 상태 요약 |
+| `.harness/runs/01-02.json` | Evidence artifact | 이 세션이 실행됐다는 증거 ledger |
+| 대화 스크롤백 | 제외 | source of truth가 아님 — compaction 시 손실 가능 |
+
+파일로 외부화하지 않으면 context compaction 과정에서 핵심 결정이 소실됩니다.
+
 ### 재현 명령
 
 ```bash
@@ -415,6 +499,8 @@ grep -n "Do not modify files" .claude/agents/explorer.md
 
 이 문구는 Explorer의 body rule입니다. frontmatter의 `tools` 목록에는 `Read, Grep, Glob, Bash`만 있고 `Edit`, `Write`, `MultiEdit`은 없습니다. 그러나 `Bash`가 남아 있으므로 "수정 금지"는 완전한 hard boundary가 아니라 soft boundary입니다. 이 설계상 한계는 2.1절에서 의도적으로 노출합니다.
 
+> **확인 질문.** `Do not modify files` 규칙은 hard boundary입니까, soft boundary입니까? `Bash`가 tools에 남아 있다면 어떻게 됩니까?
+
 ### Step 3 — Verifier 판정 문구 확인
 
 ```bash
@@ -428,6 +514,8 @@ grep -n "Pass/Fail" .claude/agents/verifier.md
 ```
 
 `verifier.md`는 역할 지시만 담습니다. 자동 검증은 `verify_session.py`가 문자열 존재 여부로만 수행하며, 의미 분석은 하지 않습니다.
+
+> **확인 질문.** `Return Pass/Fail with evidence` 만으로 충분합니까? rubric(판단 기준)은 어디에 정의해야 합니까?
 
 ### Step 4 — current-state.md의 Codex/Verifier 문자열 확인
 
@@ -451,6 +539,8 @@ grep -nE "Codex|Verifier" docs/current-state.md
 | `docs/current-state.md` | `Codex`, `Verifier` |
 
 `docs/current-state.md`의 두 문자열은 역할 배치 결과가 대화 스크롤백이 아니라 파일로 외부화됐다는 최소 산출물 계약입니다.
+
+> **확인 질문.** `Codex`와 `Verifier` 문자열을 파일로 남기는 이유는 무엇입니까? 대화 스크롤백에만 남기면 어떤 문제가 생깁니까?
 
 ### Step 5 — 세션 단위 재검증 (선택)
 
@@ -482,6 +572,8 @@ bash scripts/check.sh --session 01-02
 [part5] session checks passed: 01-02
 ```
 
+> **확인 질문.** `check.sh`와 `verify_session.py`는 각각 verifier입니까, hook guardrail입니까? 둘의 차이는 무엇입니까?
+
 ## 5. 역할 분리 고유의 안티패턴
 
 (멀티 에이전트 일반 안티패턴은 01-01의 17장을 참고합니다. 이 절은 **역할 분리에서만** 생기는 함정을 다룹니다.)
@@ -494,6 +586,9 @@ bash scripts/check.sh --session 01-02
 | 역할 간 구두 전달 | 핸드오프가 대화 스크롤백으로만 흐름 | 파일(SPEC/PLAN/current-state)로 외부화 |
 | Implementer 범위 확장 | "관련해서" 다른 곳까지 리팩터링 | `Do not broaden scope` + PLAN.md의 파일 목록으로 경계 |
 | Verifier가 구현까지 | 검증하다 직접 고침 → 자기 코드 자기 검증 | `Do not implement unless explicitly asked` |
+| 모든 요청을 SubAgent로 보냄 | 단순 작업도 subagent로 격리 → latency·overhead 증가 | 작업 성격별 판단 기준 적용 (1.0절 체크리스트) |
+| Verifier rubric 없음 | "좋은지 확인해" 수준 → rubber-stamp | rubric, source_of_truth, required_tests 명시 |
+| 중간 산출물을 prompt에 직접 붙임 | tool result, raw log를 main context에 누적 → context bloat | artifact store에 저장하고 pointer만 전달 |
 
 ### 완료 기준
 
@@ -514,4 +609,4 @@ bash scripts/check.sh --session 01-02
 - Codex Subagents: https://developers.openai.com/codex/concepts/subagents
 - Codex AGENTS.md: https://developers.openai.com/codex/guides/agents-md
 - (개념 복습) 01-01 SubAgents와 context isolation — 같은 폴더 `01-01-subagents.md`
-- (다음 단계) 01-03 결과 합성과 context hygiene — 역할 산출물을 메인 컨텍스트 밖으로 외부화하는 법
+- (다음 단계) 01-03 SubAgent to Main handoff — 역할 산출물을 파일로 외부화하고 메인 컨텍스트에는 인덱스만 남기는 법
