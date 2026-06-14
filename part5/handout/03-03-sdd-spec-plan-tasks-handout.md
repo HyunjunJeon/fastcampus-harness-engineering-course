@@ -9,7 +9,7 @@ SDD는 복잡하게 문서를 많이 쓰는 것이 아니라 agent가 추측하�
 - GitHub Spec-Kit(SDD): https://github.com/github/spec-kit/blob/main/spec-driven.md
 
 ---
-*SDD**는 GitHub Spec Kit 문맥의 **Specification-Driven Development, 명세 주도 개발**입니다. 한 문장으로 정리하면, **코드를 진실의 원천으로 보지 않고, 명세·계획·계약·테스트를 진실의 원천으로 삼아 코드를 그 산출물로 생성·검증·재생성하는 개발 방식**입니다.
+**SDD**는 GitHub Spec Kit 문맥의 **Specification-Driven Development, 명세 주도 개발**입니다. 한 문장으로 정리하면, **코드를 진실의 원천으로 보지 않고, 명세·계획·계약·테스트를 진실의 원천으로 삼아 코드를 그 산출물로 생성·검증·재생성하는 개발 방식**입니다.
 
 ## 1. SDD란 무엇인가
 
@@ -301,7 +301,238 @@ SDD는 명세를 많이 쓰면 성공하는 방법론이 아닙니다. 실패 �
 
 다섯째, **운영 피드백이 명세로 돌아오지 않는 경우**입니다. 장애 대응이 hotfix로만 끝나면 다음 생성·수정 사이클에서 같은 문제가 반복됩니다.
 
-## 7. 결론
+## 7. SpecKit으로 작업 계획을 작성해보는 예제
+
+이번 예제의 목표는 실제 구현까지 바로 맡기는 것이 아니라, **SpecKit 흐름으로 agent가 실행할 수 있는 작업 계획을 만드는 것**입니다. 기능은 일부러 작게 잡습니다. 작은 기능일수록 spec, plan, tasks의 차이가 잘 보입니다.
+
+예제 기능은 다음과 같습니다.
+
+```text
+강의 자료 폴더에서 Markdown handout을 검사해,
+필수 섹션 누락과 금지된 Claude print-mode 명령 사용을 찾아내는 로컬 검증 스크립트를 만든다.
+```
+
+### 7.1 Constitution: 바뀌면 안 되는 원칙 고정
+
+먼저 프로젝트의 불변 원칙을 정합니다. 이것은 매 기능마다 다시 쓰는 요구사항이 아니라, 이후 spec과 plan을 제약하는 상위 규칙입니다.
+
+```text
+/speckit.constitution
+이 프로젝트는 강의 실습용 로컬 하네스입니다.
+기본 검증은 계정, 네트워크, 유료 API 없이 통과해야 합니다.
+모든 실습 명령은 part5/lab 기준으로 실행 가능해야 합니다.
+Claude Code, Codex, tmux, MCP가 필요한 단계는 선택 live smoke로만 둡니다.
+Claude print-mode 명령 사용 예시는 금지합니다.
+검증 스크립트는 실패 이유와 파일 경로를 사람이 읽을 수 있게 출력해야 합니다.
+```
+
+이 단계의 산출물은 보통 `.specify/memory/constitution.md` 같은 프로젝트 원칙 문서가 됩니다. 중요한 점은 "좋은 코드로 만든다"가 아니라 **agent가 어길 수 없는 제약**을 적는 것입니다.
+
+### 7.2 Specify: 무엇을 왜 만들지 고정
+
+다음은 기술 선택을 빼고 기능의 목적과 판정 기준을 적습니다.
+
+```text
+/speckit.specify
+강의 운영자는 Part 5 handout을 배포하기 전에 로컬에서 Markdown 계약을 검사하고 싶다.
+검사 대상은 part5/handout/*.md 파일이다.
+각 handout은 세션 제목, 핵심 한 줄, 오늘 가져갈 것, 실습, 검증, 실습 결과물 섹션을 가져야 한다.
+문서 안에 Claude print-mode 실행 예시가 있으면 실패해야 한다.
+검사는 네트워크와 외부 계정 없이 실행되어야 한다.
+실패 시 어떤 파일에서 어떤 규칙이 깨졌는지 출력해야 한다.
+```
+
+예상되는 `spec.md`의 일부는 다음처럼 ID가 붙어야 합니다.
+
+```markdown
+# Feature Spec: Part 5 Handout Contract Check
+
+## User Story
+
+US-001: 강의 운영자는 배포 전에 `part5/handout/*.md`의 구조와 금지 명령을 로컬에서 검사할 수 있어야 합니다.
+
+## Functional Requirements
+
+FR-001: 시스템은 `part5/handout/*.md` 파일을 검사 대상으로 수집해야 합니다.
+FR-002: 시스템은 각 handout에 필수 섹션이 있는지 검사해야 합니다.
+FR-003: 시스템은 Claude print-mode 명령이 실행 예시로 포함되어 있으면 실패해야 합니다.
+FR-004: 실패 결과에는 파일 경로와 실패한 규칙 ID가 포함되어야 합니다.
+
+## Non-Functional Requirements
+
+NFR-001: 검사는 네트워크 없이 실행되어야 합니다.
+NFR-002: 검사는 macOS 기본 Python 3 환경에서 동작해야 합니다.
+
+## Acceptance Criteria
+
+AC-001: 필수 섹션이 누락된 handout이 있으면 명령은 non-zero로 종료합니다.
+AC-002: 금지 명령이 포함된 handout이 있으면 명령은 non-zero로 종료합니다.
+AC-003: 모든 handout이 규칙을 만족하면 명령은 zero로 종료합니다.
+```
+
+### 7.3 Clarify와 Checklist: 추측을 질문으로 바꾸기
+
+명세 초안에는 빠진 결정이 남아 있을 가능성이 큽니다. 이때 바로 plan으로 넘어가지 않고 모호성을 먼저 드러냅니다.
+
+```text
+/speckit.clarify
+필수 섹션 목록, 금지 명령 판정 방식, 실패 출력 형식, 검사 제외 파일 기준을 중심으로 모호성을 찾아주세요.
+```
+
+좋은 clarification 결과는 다음처럼 답할 수 있는 질문을 남깁니다.
+
+```text
+Q1. README.md도 handout 계약 검사 대상인가?
+A1. 아니요. 세션 handout 파일만 검사합니다.
+
+Q2. 금지 명령은 문장 설명에도 등장하면 실패인가?
+A2. 실행 가능한 command block 또는 inline command 예시로 등장하면 실패입니다. 정책 설명 문장에서는 허용합니다.
+
+Q3. 필수 섹션은 모든 handout에 동일하게 강제하는가?
+A3. 03-03 이후 신규 handout에는 강제하고, 기존 레거시 handout은 별도 allowlist로 분리합니다.
+```
+
+그 다음 명세 자체를 검토합니다.
+
+```text
+/speckit.checklist
+검증 가능성, 모호성, 테스트 가능성, 로컬 실행 가능성 기준으로 spec 품질 체크리스트를 만들어주세요.
+```
+
+이 단계는 "영어 문서의 단위 테스트"에 가깝습니다. checklist가 실패하면 코드를 고치는 것이 아니라 먼저 spec을 고칩니다.
+
+### 7.4 Plan: 어떻게 만들지 기술 계획으로 바꾸기
+
+이제 기술 선택과 파일 경로를 고정합니다.
+
+```text
+/speckit.plan
+Python 3 표준 라이브러리만 사용합니다.
+검증 스크립트는 part5/lab/scripts/verify_handout_contract.py에 둡니다.
+테스트는 part5/lab/tests/test_verify_handout_contract.py에 둡니다.
+기존 check.sh가 있다면 --session 03-03 경로에서 이 검사를 호출하도록 연결합니다.
+Markdown 파서는 새 의존성을 추가하지 않고 heading line 스캔으로 처리합니다.
+```
+
+예상되는 `plan.md`의 일부는 다음처럼 요구사항과 기술 결정을 연결해야 합니다.
+
+```markdown
+# Implementation Plan
+
+## Scope
+
+Build a local handout contract verifier for Part 5 Markdown files.
+
+## Technical Decisions
+
+D-001: Python 3 standard library only.
+Rationale: NFR-001 and NFR-002 require local execution without network or dependency installation.
+Linked Requirements: NFR-001, NFR-002
+
+D-002: Detect required sections by Markdown heading text.
+Rationale: The handout contract is section-based, and full Markdown parsing is unnecessary for this course material.
+Linked Requirements: FR-002
+Rejected: Add a Markdown parser dependency | This violates the no-new-dependency teaching constraint.
+
+D-003: Report failures as `path: RULE_ID: message`.
+Rationale: The output must be readable by both humans and hooks.
+Linked Requirements: FR-004, AC-001, AC-002
+
+## Files
+
+- `part5/lab/scripts/verify_handout_contract.py`
+- `part5/lab/tests/test_verify_handout_contract.py`
+- `part5/lab/scripts/check.sh`
+```
+
+여기서 plan은 "작업 목록"이 아닙니다. plan은 **구현 방향의 결정 기록**입니다. 미래의 agent가 같은 기능을 다시 만질 때, 왜 Python 표준 라이브러리만 쓰는지, 왜 heading scan으로 충분한지, 왜 출력 형식이 고정되어야 하는지를 알 수 있어야 합니다.
+
+### 7.5 Tasks: agent가 바로 실행할 체크리스트로 쪼개기
+
+마지막으로 plan을 작업 단위로 변환합니다.
+
+```text
+/speckit.tasks
+```
+
+예상되는 `tasks.md`는 다음처럼 파일 경로, 의존성, 병렬 가능 여부가 보여야 합니다.
+
+```markdown
+# Tasks: Part 5 Handout Contract Check
+
+## Phase 1: Test Contract
+
+- [ ] T-001 Create fixture Markdown files in `part5/lab/tests/fixtures/handouts/`.
+- [ ] T-002 Write tests for missing required section failures in `part5/lab/tests/test_verify_handout_contract.py`.
+- [ ] T-003 Write tests for forbidden command failures in `part5/lab/tests/test_verify_handout_contract.py`.
+- [ ] T-004 Write tests for success output and zero exit behavior in `part5/lab/tests/test_verify_handout_contract.py`.
+
+## Phase 2: Verifier Implementation
+
+- [ ] T-005 Implement file discovery in `part5/lab/scripts/verify_handout_contract.py`.
+- [ ] T-006 Implement required heading detection in `part5/lab/scripts/verify_handout_contract.py`.
+- [ ] T-007 Implement forbidden command detection in `part5/lab/scripts/verify_handout_contract.py`.
+- [ ] T-008 Implement CLI exit codes and `path: RULE_ID: message` output in `part5/lab/scripts/verify_handout_contract.py`.
+
+## Phase 3: Harness Integration
+
+- [ ] T-009 Wire `verify_handout_contract.py` into `part5/lab/scripts/check.sh`.
+- [ ] T-010 Document the verification command in the relevant handout.
+- [ ] T-011 Run `python3 -m pytest -q part5/lab/tests/test_verify_handout_contract.py`.
+- [ ] T-012 Run `cd part5/lab && bash scripts/check.sh --session 03-03`.
+```
+
+좋은 tasks는 "검증 스크립트 구현"처럼 크게 뭉치지 않습니다. 각 항목이 하나의 파일과 하나의 관찰 가능한 결과를 가져야 합니다. 그래야 agent에게 맡겼을 때 중간 실패 지점이 보입니다.
+
+### 7.6 Analyze: 산출물 사이의 충돌 찾기
+
+작업을 실행하기 전에 spec, plan, tasks가 서로 맞는지 검사합니다.
+
+```text
+/speckit.analyze
+```
+
+이 예제에서 analyze가 찾아야 할 대표적인 문제는 다음입니다.
+
+```text
+- spec은 README.md 제외를 말하지 않는데, clarify 답변은 README.md를 제외한다고 정했습니다.
+- tasks에는 check.sh 연결이 있지만, spec의 acceptance criteria에는 check.sh 실행 기준이 없습니다.
+- plan은 기존 레거시 handout allowlist를 언급하지만, tasks에는 allowlist 구현 작업이 없습니다.
+```
+
+이런 문제가 나오면 구현을 시작하지 말고 먼저 `spec.md`, `plan.md`, `tasks.md` 중 어느 문서가 틀렸는지 고칩니다.
+
+### 7.7 수강생 실습
+
+아래 기능 중 하나를 골라 같은 흐름으로 작업 계획을 작성해봅니다.
+
+```text
+1. Markdown handout의 필수 섹션 검사
+2. 실습 결과물 폴더에 evidence 파일이 있는지 검사
+3. agent가 완료 선언 전에 실행해야 하는 check command 목록 생성
+```
+
+작성해야 하는 산출물은 세 개입니다.
+
+```text
+spec.md  - 무엇을 왜 만들지, 수용 기준은 무엇인지
+plan.md  - 어떤 파일을 어떻게 바꿀지, 기술 결정과 거절한 대안은 무엇인지
+tasks.md - 어떤 순서로 구현하고 검증할지
+```
+
+최종 점검 질문은 다음입니다.
+
+```text
+1. spec만 읽어도 완료 여부를 판정할 수 있습니까?
+2. plan의 모든 기술 결정은 요구사항 ID와 연결되어 있습니까?
+3. tasks의 각 항목은 한 번에 구현하고 검증할 수 있을 만큼 작습니까?
+4. acceptance criterion이 테스트, manual QA, hook 검증 중 하나와 연결되어 있습니까?
+5. agent가 추측해야 하는 빈칸이 `[NEEDS CLARIFICATION]` 또는 질문으로 남아 있습니까?
+```
+
+이 예제에서 가장 중요한 산출물은 코드가 아니라 **agent가 그대로 따라도 되는 작업 계획**입니다. 구현은 그 다음 단계입니다.
+
+## 8. 결론
 
 SDD의 본질은 **“소프트웨어 개발의 중심 산출물을 코드에서 명세로 이동시키는 것”**입니다. 하지만 이 말은 코드가 덜 중요하다는 뜻이 아닙니다. 오히려 코드를 더 엄밀하게 만들기 위해, 코드 이전의 의도·요구·계약·검증 기준을 더 정밀하게 다루자는 뜻입니다.
 
