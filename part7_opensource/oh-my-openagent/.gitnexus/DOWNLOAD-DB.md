@@ -17,6 +17,8 @@ cd .gitnexus
 ./fetch-db.sh
 ```
 
+On Windows Git-Bash, run `sh ./fetch-db.sh` if the file is not marked executable.
+
 This pulls the prebuilt `lbug` database from the repo's GitHub Release
 (`gitnexus-db-v1`). Once it lands, the GitNexus MCP tools (`query`, `impact`,
 `context`, ...) work against the same index used to build this course — no paid
