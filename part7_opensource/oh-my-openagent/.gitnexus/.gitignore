@@ -1,0 +1,15 @@
+*
+
+# Share GitNexus navigation artifacts (wiki, metadata, runner) so viewers get a
+# working code-intelligence map without re-running (paid) AI analysis. The large
+# local database (lbug, ~233MB) and the parser caches (parse-cache,
+# parsedfile-cache) stay out of git -- the database is distributed via GitHub
+# Releases instead; run ./fetch-db.sh from this directory to download it.
+# Re-create everything locally with `node .gitnexus/run.cjs analyze`.
+!.gitignore
+!run.cjs
+!meta.json
+!wiki/
+!wiki/**
+!fetch-db.sh
+!DOWNLOAD-DB.md

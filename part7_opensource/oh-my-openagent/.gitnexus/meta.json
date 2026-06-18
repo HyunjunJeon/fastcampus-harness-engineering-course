@@ -1,0 +1,28 @@
+{
+  "repoPath": "/Users/jhj/Desktop/personal/fastcampus_harness_online_learning/part7_opensource/oh-my-openagent",
+  "lastCommit": "",
+  "indexedAt": "2026-06-18T05:50:14.513Z",
+  "stats": {
+    "files": 4478,
+    "nodes": 35252,
+    "edges": 72851,
+    "communities": 1363,
+    "processes": 300,
+    "embeddings": 0
+  },
+  "capabilities": {
+    "graph": {
+      "provider": "ladybugdb",
+      "status": "available"
+    },
+    "fts": {
+      "provider": "ladybugdb-fts",
+      "status": "available"
+    },
+    "vectorSearch": {
+      "provider": "ladybugdb-vector",
+      "status": "unavailable",
+      "exactScanLimit": 10000
+    }
+  }
+}

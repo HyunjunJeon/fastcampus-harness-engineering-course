@@ -1,0 +1,9 @@
+{
+  "totalSourceFiles": 2492,
+  "assigned": 2489,
+  "missing": [
+    "packages/omo-codex/scripts/install-dist/install-local.mjs",
+    "packages/omo-codex/scripts/install-local.mjs",
+    "packages/omo-codex/scripts/install-test-fixtures.mjs"
+  ]
+}
