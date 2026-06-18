@@ -1,6 +1,7 @@
 # Session 3-4 - Skill / Hook(Eval)로 묶어두기
 
-반복되는 요청은 prompt가 아니라 `skill, hook(eval)`, 로 승격해야 재사용이 가능하게 만들 수 있습니다.
+반복되는 요청은 prompt가 아니라 `skill, hook(eval)`, 로 승격해야 
+`재사용` 가능하게 만들 수 있습니다.
 
 - spec review를 skill로 만듭니다.
 - 필요한 체크 작업을 Stop hook에 연결합니다.
