@@ -1,0 +1,25 @@
+# Keep GitNexus from indexing its own generated database/cache/wiki output.
+.gitnexus/
+
+# The source documentation surfaces below are intentionally kept indexable.
+!*.md
+!docs/**/*.md
+!packages/**/*.md
+!python/**/*.md
+!crates/**/*.md
+
+# GitNexus hard-filters fixture directories by default. This project keeps
+# Markdown prompt/plugin fixtures as source documentation, so include them.
+!fixtures/
+!**/fixtures/
+!**/fixtures/**/*.md
+!packages/coding-agent/test/
+!packages/coding-agent/test/**/*.md
+
+# Keep the generated GitNexus skill docs visible to file-based document indexes.
+# The current GitNexus walker does not descend into dot-directories for graph
+# nodes, so these are still represented in .gitnexus/wiki/document-index.md.
+!.claude/
+!.claude/skills/
+!.claude/skills/gitnexus/
+!.claude/skills/gitnexus/**/*.md

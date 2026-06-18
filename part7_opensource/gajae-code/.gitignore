@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+node_modules
+.npm/
+
+# Build output
+dist/
+packages/*/dist/
+packages/*/dist-chrome/
+packages/*/dist-firefox/
+target/
+*.tsbuildinfo
+*.node
+*.node.build.json
+*.b64.js
+
+# Environment
+.env
+
+# Editors
+.vscode/
+.zed/
+.idea/
+*.swp
+*.swo
+*.kate-swp
+*~
+
+# OS
+*.tmp
+.DS_Store
+
+# Logs & profiling
+*.log
+tui-debug.log
+*.cpuprofile
+
+# Test & coverage
+coverage/
+.nyc_output/
+packages/ai/test/.temp-images/
+
+# Project specific
+!.gjc/
+!.gjc/agents/
+!.gjc/agents/**
+!.gjc/skills/
+!.gjc/skills/**
+.gjc/plugins/
+.gjc/context/
+.gjc/interviews/
+.gjc/plans/
+.gjc/ralplan/
+.gjc/specs/
+.gjc/ultragoal/
+.gjc/verification/
+.gjc/logs/
+.gjc/state/
+.gjc/metrics.json
+.pi_config/
+.opencode/
+.worktrees/
+compaction-results/
+changes/
+__pycache__/
+
+# Scratch files
+syntax.jsonl
+out.jsonl
+out.html
+pi-*.html
+
+# Generated files
+packages/coding-agent/src/internal-urls/docs-index.generated.ts
+/runs/
+python/gjc-rpc/src/gjc_rpc.egg-info/
+# parallel-agent worktrees
+.wt/
+CPU*.md
+packages/coding-agent/binaries/
+
+# robogjc runtime state
+python/robogjc/data/
+python/robogjc/.cache/
+python/robogjc/src/robogjc/static/
+python/robogjc/web/dist/
+python/robogjc/.env
+.release-040-artifacts/

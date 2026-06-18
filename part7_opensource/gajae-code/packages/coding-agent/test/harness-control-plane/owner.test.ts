@@ -1,0 +1,326 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
+import { callEndpoint } from "../../src/harness-control-plane/control-endpoint";
+import { RuntimeOwner, resolveOwner, resolveOwnerLive } from "../../src/harness-control-plane/owner";
+import type { HarnessRpc, RpcStateSnapshot } from "../../src/harness-control-plane/rpc-adapter";
+import { acquireLease } from "../../src/harness-control-plane/session-lease";
+import {
+	controlSocketPath,
+	readEvents,
+	readReceiptIndex,
+	readSessionState,
+	sessionPaths,
+	writeSessionState,
+} from "../../src/harness-control-plane/storage";
+import { SESSION_SCHEMA_VERSION, type SessionHandle, type SessionState } from "../../src/harness-control-plane/types";
+
+class FakeRpc implements HarnessRpc {
+	cursor = 0;
+	state: RpcStateSnapshot = { isStreaming: false, steeringQueueDepth: 0, followupQueueDepth: 0 };
+	ack = true;
+	accept = true;
+	agentStarts: number[] = [];
+	async getState(): Promise<RpcStateSnapshot> {
+		return this.state;
+	}
+	eventCursor(): number {
+		return this.cursor;
+	}
+	async sendPrompt(): Promise<{ commandId: string; ack: boolean }> {
+		if (this.accept) {
+			this.cursor += 1;
+			this.agentStarts.push(this.cursor);
+		}
+		return { commandId: "cmd-1", ack: this.ack };
+	}
+	async waitForAgentStart(afterCursor: number): Promise<{ cursor: number } | null> {
+		const found = this.agentStarts.find(c => c > afterCursor);
+		return found === undefined ? null : { cursor: found };
+	}
+	async close(): Promise<void> {}
+}
+
+let root: string;
+const SID = "o";
+let owner: RuntimeOwner | null = null;
+
+function seedState(workspace: string): SessionState {
+	const now = new Date().toISOString();
+	const handle = { sessionId: SID, harness: "gajae-code", workspace, branch: "feat/x" } as SessionHandle;
+	return {
+		schemaVersion: SESSION_SCHEMA_VERSION,
+		sessionId: SID,
+		lifecycle: "started",
+		harness: "gajae-code",
+		handle,
+		retries: {},
+		blockers: [],
+		createdAt: now,
+		updatedAt: now,
+	};
+}
+
+beforeEach(async () => {
+	// Short root keeps the AF_UNIX socket path under the sun_path limit.
+	root = await mkdtemp(path.join(tmpdir(), "h"));
+	await writeSessionState(root, seedState(root));
+	owner = null;
+});
+
+afterEach(async () => {
+	await owner?.stop();
+	await rm(root, { recursive: true, force: true });
+});
+
+describe("RuntimeOwner (in-process integration)", () => {
+	it("routes submit through the endpoint, accepts via single-flight, and is the single event writer", async () => {
+		const rpc = new FakeRpc();
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 200 });
+		const info = await owner.start();
+		expect(info.leaseEpoch).toBe(1);
+
+		const live = await resolveOwner(root, SID);
+		expect(live.live).toBe(true);
+		expect(live.socketPath).toBe(info.socketPath);
+
+		const res = (await callEndpoint(info.socketPath, { verb: "submit", input: { prompt: "do it" } })) as Record<
+			string,
+			unknown
+		>;
+		expect(res.ok).toBe(true);
+		expect((res.evidence as Record<string, unknown>).accepted).toBe(true);
+		expect((res.state as Record<string, unknown>).lifecycle).toBe("observing");
+		expect((res.state as Record<string, unknown>).ownerLive).toBe(true);
+
+		const events = await readEvents(root, SID, 0);
+		const kinds = events.map(e => e.kind);
+		expect(kinds).toContain("owner_started");
+		expect(kinds).toContain("prompt_accepted");
+		// Single writer: every event is stamped with this owner + lease epoch, cursors strictly increasing.
+		for (const e of events) {
+			expect(e.writer.ownerId).toBe(info.ownerId);
+			expect(e.writer.leaseEpoch).toBe(1);
+		}
+		expect(events.map(e => e.cursor)).toEqual([...events.map(e => e.cursor)].sort((a, b) => a - b));
+	});
+
+	it("routes operate through the owner lease-guarded event writer", async () => {
+		const rpc = new FakeRpc();
+		owner = new RuntimeOwner({
+			root,
+			sessionId: SID,
+			rpc,
+			acceptanceTimeoutMs: 100,
+			finalizeChecks: {
+				async runValidation(spec) {
+					return { exactCommand: spec.command, cwd: root, exitStatus: 0, pass: true };
+				},
+				async resolveCommit() {
+					return "abc123";
+				},
+				async commitOnBranch() {
+					return true;
+				},
+				async prOrIssue() {
+					return { prUrl: "https://example.invalid/pr/1", issueArtifact: null };
+				},
+			},
+			validationCommands: [{ name: "test", command: "bun test" }],
+		});
+		const info = await owner.start();
+		await writeSessionState(root, { ...seedState(root), lifecycle: "finalizing" });
+
+		const res = (await callEndpoint(info.socketPath, {
+			verb: "operate",
+			input: { goal: "finish", maxIterations: 1 },
+		})) as Record<string, unknown>;
+
+		expect(res.ok).toBe(true);
+		expect(((res.evidence as Record<string, unknown>).operate as Record<string, unknown>).completed).toBe(true);
+		const events = await readEvents(root, SID, 0);
+		expect(events.map(e => e.kind)).toContain("operate_started");
+		expect(events.map(e => e.kind)).toContain("operate_finalized");
+		const finalized = events.find(e => e.kind === "operate_finalized");
+		expect(finalized?.state.lifecycle).toBe("completed");
+		expect(finalized?.nextAllowedActions.some(action => action.verb === "observe" && action.available)).toBe(true);
+		expect(events.every(e => e.writer.ownerId === info.ownerId)).toBe(true);
+		expect(events.every(e => e.writer.leaseEpoch === info.leaseEpoch)).toBe(true);
+	});
+
+	it("blocks submit when the harness acks but never starts (no false-positive acceptance)", async () => {
+		const rpc = new FakeRpc();
+		rpc.accept = false; // ack only, no agent_start
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 100 });
+		const info = await owner.start();
+		const res = (await callEndpoint(info.socketPath, { verb: "submit", input: { prompt: "p" } })) as Record<
+			string,
+			unknown
+		>;
+		expect(res.ok).toBe(false);
+		expect((res.evidence as Record<string, unknown>).accepted).toBe(false);
+		expect((res.evidence as Record<string, unknown>).reason).toBe("no-agent-start-within-timeout");
+		const events = await readEvents(root, SID, 0);
+		expect(events.map(e => e.kind)).toContain("prompt_not_accepted");
+		const warn = events.find(e => e.kind === "prompt_not_accepted");
+		expect(warn?.severity).toBe("warn");
+	});
+
+	it("blocks submit during finalizing and does not call RPC", async () => {
+		const rpc = new FakeRpc();
+		await writeSessionState(root, { ...seedState(root), lifecycle: "finalizing" });
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 100 });
+		const info = await owner.start();
+
+		const res = (await callEndpoint(info.socketPath, { verb: "submit", input: { prompt: "too soon" } })) as Record<
+			string,
+			unknown
+		>;
+
+		expect(res.ok).toBe(false);
+		expect((res.evidence as Record<string, unknown>).accepted).toBe(false);
+		expect((res.evidence as Record<string, unknown>).submitted).toBe(false);
+		expect((res.evidence as Record<string, unknown>).reason).toBe("lifecycle-not-idle:finalizing");
+		expect(res.nextAllowedActions).toContainEqual({
+			verb: "submit",
+			available: false,
+			reason: "lifecycle-not-idle:finalizing",
+		});
+		expect(rpc.cursor).toBe(0);
+	});
+
+	it("reports rpc-not-idle as not submitted and stops advertising submit", async () => {
+		const rpc = new FakeRpc();
+		rpc.state = { isStreaming: true, steeringQueueDepth: 0, followupQueueDepth: 0 };
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 100 });
+		const info = await owner.start();
+
+		const res = (await callEndpoint(info.socketPath, { verb: "submit", input: { prompt: "too soon" } })) as Record<
+			string,
+			unknown
+		>;
+
+		expect(res.ok).toBe(false);
+		expect((res.evidence as Record<string, unknown>).accepted).toBe(false);
+		expect((res.evidence as Record<string, unknown>).submitted).toBe(false);
+		expect((res.evidence as Record<string, unknown>).reason).toBe("pre-state-not-idle");
+		expect(res.nextAllowedActions).toContainEqual({ verb: "submit", available: false, reason: "rpc-not-idle" });
+		expect(rpc.cursor).toBe(0);
+	});
+
+	it("live owner reconcile preserves vanished blockers until recovery evidence", async () => {
+		const rpc = new FakeRpc();
+		await writeSessionState(root, {
+			...seedState(root),
+			lifecycle: "blocked",
+			blockers: ["owner-vanished:dirty"],
+		});
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 200 });
+		const info = await owner.start();
+
+		const obs = (await callEndpoint(info.socketPath, { verb: "observe", input: {} })) as Record<string, unknown>;
+
+		expect((obs.state as Record<string, unknown>).ownerLive).toBe(true);
+		expect((obs.state as Record<string, unknown>).lifecycle).toBe("blocked");
+		expect((obs.state as Record<string, unknown>).blockers).toContain("owner-vanished:dirty");
+		expect(obs.nextAllowedActions).toContainEqual({ verb: "submit", available: false, reason: "lifecycle-blocked" });
+		const persisted = await readSessionState(root, SID);
+		expect(persisted?.lifecycle).toBe("blocked");
+		expect(persisted?.blockers).toContain("owner-vanished:dirty");
+	});
+
+	it("recover clears vanished blockers after writing vanish receipt evidence", async () => {
+		const rpc = new FakeRpc();
+		const init = Bun.spawnSync(["git", "init"], { cwd: root, stdout: "pipe", stderr: "pipe" });
+		expect(init.exitCode).toBe(0);
+		await writeSessionState(root, {
+			...seedState(root),
+			lifecycle: "blocked",
+			blockers: ["owner-vanished:dirty"],
+		});
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 200 });
+		const info = await owner.start();
+
+		const res = (await callEndpoint(info.socketPath, { verb: "recover", input: {} })) as Record<string, unknown>;
+		const evidence = res.evidence as Record<string, unknown>;
+
+		expect(typeof evidence.vanishReceiptId).toBe("string");
+		expect((evidence.decision as Record<string, unknown>)?.classification).toBe("restart-preserve-delta");
+		expect((res.state as Record<string, unknown>).lifecycle).toBe("observing");
+		expect((res.state as Record<string, unknown>).blockers).not.toContain("owner-vanished:dirty");
+		expect(await readReceiptIndex(root, SID, "vanish")).toHaveLength(1);
+		const persisted = await readSessionState(root, SID);
+		expect(persisted?.lifecycle).toBe("observing");
+		expect(persisted?.blockers).not.toContain("owner-vanished:dirty");
+	});
+
+	it("live owner reconcile clears detached startup false-negative blockers", async () => {
+		const rpc = new FakeRpc();
+		await writeSessionState(root, {
+			...seedState(root),
+			lifecycle: "blocked",
+			blockers: ["detached-owner-not-live"],
+		});
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 200 });
+		const info = await owner.start();
+
+		const obs = (await callEndpoint(info.socketPath, { verb: "observe", input: {} })) as Record<string, unknown>;
+
+		expect((obs.state as Record<string, unknown>).ownerLive).toBe(true);
+		expect((obs.state as Record<string, unknown>).lifecycle).toBe("observing");
+		expect((obs.state as Record<string, unknown>).blockers).not.toContain("detached-owner-not-live");
+		expect(obs.nextAllowedActions).toContainEqual({ verb: "submit", available: true });
+		const persisted = await readSessionState(root, SID);
+		expect(persisted?.lifecycle).toBe("observing");
+		expect(persisted?.blockers).not.toContain("detached-owner-not-live");
+	});
+
+	it("observe is owner-routed and reports ownerLive; retire releases the lease", async () => {
+		const rpc = new FakeRpc();
+		owner = new RuntimeOwner({ root, sessionId: SID, rpc, acceptanceTimeoutMs: 200 });
+		const info = await owner.start();
+
+		const obs = (await callEndpoint(info.socketPath, { verb: "observe", input: {} })) as Record<string, unknown>;
+		expect((obs.evidence as Record<string, unknown>).ownerRouted).toBe(true);
+		expect((obs.state as Record<string, unknown>).ownerLive).toBe(true);
+
+		const ret = (await callEndpoint(info.socketPath, { verb: "retire", input: {} })) as Record<string, unknown>;
+		expect((ret.evidence as Record<string, unknown>).retired).toBe(true);
+
+		// Poll for the owner to release the lease + close the endpoint (robust under load).
+		let after = await resolveOwner(root, SID);
+		for (let i = 0; i < 100 && after.live; i++) {
+			await new Promise(r => setTimeout(r, 20));
+			after = await resolveOwner(root, SID);
+		}
+		expect(after.live).toBe(false);
+	});
+});
+
+describe("resolveOwnerLive (lease/socket liveness probe)", () => {
+	it("returns false when no lease exists (owner never started)", async () => {
+		expect(await resolveOwnerLive(root, SID)).toBe(false);
+	});
+
+	it("returns true for a live lease with a socket endpoint (live manual owner)", async () => {
+		await acquireLease(root, SID, {
+			ownerId: "manual-owner",
+			pid: process.pid,
+			endpoint: { kind: "unix-socket", path: controlSocketPath(root, SID) },
+			eventsPath: sessionPaths(root, SID).events,
+			ttlMs: 30_000,
+		});
+		expect(await resolveOwnerLive(root, SID)).toBe(true);
+	});
+
+	it("returns false for a live lease without a routable endpoint", async () => {
+		await acquireLease(root, SID, {
+			ownerId: "endpointless-owner",
+			pid: process.pid,
+			eventsPath: sessionPaths(root, SID).events,
+			ttlMs: 30_000,
+		});
+		expect(await resolveOwnerLive(root, SID)).toBe(false);
+	});
+});

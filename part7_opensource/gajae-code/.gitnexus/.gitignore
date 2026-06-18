@@ -1,0 +1,15 @@
+*
+
+# Share GitNexus navigation artifacts (wiki, metadata, runner) so viewers get a
+# working code-intelligence map. The large local database (lbug, ~283MB) and the
+# parser caches (parse-cache, parsedfile-cache) stay out of git -- the database is
+# distributed via GitHub Releases instead; run ./fetch-db.sh from this directory
+# to download it. Re-create everything locally with `bun run gitnexus:analyze`.
+!.gitignore
+!run.cjs
+!meta.json
+!update-document-index.cjs
+!wiki/
+!wiki/**
+!fetch-db.sh
+!DOWNLOAD-DB.md

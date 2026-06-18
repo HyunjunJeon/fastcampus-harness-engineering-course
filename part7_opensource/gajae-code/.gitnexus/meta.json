@@ -1,0 +1,28 @@
+{
+  "repoPath": "/Users/jhj/Desktop/personal/fastcampus_harness_online_learning/part7_opensource/gajae-code",
+  "lastCommit": "",
+  "indexedAt": "2026-06-18T05:36:27.391Z",
+  "stats": {
+    "files": 3123,
+    "nodes": 52574,
+    "edges": 134660,
+    "communities": 2290,
+    "processes": 300,
+    "embeddings": 0
+  },
+  "capabilities": {
+    "graph": {
+      "provider": "ladybugdb",
+      "status": "available"
+    },
+    "fts": {
+      "provider": "ladybugdb-fts",
+      "status": "available"
+    },
+    "vectorSearch": {
+      "provider": "ladybugdb-vector",
+      "status": "unavailable",
+      "exactScanLimit": 10000
+    }
+  }
+}

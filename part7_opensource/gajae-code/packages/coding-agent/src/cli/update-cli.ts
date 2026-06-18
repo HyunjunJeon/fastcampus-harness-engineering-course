@@ -1,0 +1,459 @@
+/**
+ * Update CLI command handler.
+ *
+ * Handles `gjc update` to check for and install updates.
+ * Uses bun if available, otherwise downloads binary from GitHub releases.
+ */
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pipeline } from "node:stream/promises";
+import { $which, APP_NAME, isEnoent, VERSION } from "@gajae-code/utils";
+import { $ } from "bun";
+import chalk from "chalk";
+import { theme } from "../modes/theme/theme";
+
+const RELEASE_REPO = "Yeachan-Heo/gajae-code";
+const PACKAGE = "@gajae-code/coding-agent";
+
+interface ReleaseInfo {
+	tag: string;
+	version: string;
+}
+
+/** Result from running the installed binary and parsing its reported version. */
+export interface InstalledVersionVerification {
+	ok: boolean;
+	actual?: string;
+	path?: string;
+}
+
+/** Paths and verifier used while replacing a downloaded binary update. */
+export interface BinaryReplacementOptions {
+	targetPath: string;
+	tempPath: string;
+	backupPath: string;
+	expectedVersion: string;
+	verifyInstalledVersion: (expectedVersion: string) => Promise<InstalledVersionVerification>;
+}
+
+/**
+ * Parse update subcommand arguments.
+ * Returns undefined if not an update command.
+ */
+export function parseUpdateArgs(args: string[]): { force: boolean; check: boolean } | undefined {
+	if (args.length === 0 || args[0] !== "update") {
+		return undefined;
+	}
+
+	return {
+		force: args.includes("--force") || args.includes("-f"),
+		check: args.includes("--check") || args.includes("-c"),
+	};
+}
+
+async function getBunGlobalBinDir(): Promise<string | undefined> {
+	if (!$which("bun")) return undefined;
+	try {
+		const result = await $`bun pm bin -g`.quiet().nothrow();
+		if (result.exitCode !== 0) return undefined;
+		const output = result.text().trim();
+		return output.length > 0 ? output : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function normalizePathForComparison(filePath: string): string {
+	const normalized = path.normalize(filePath);
+	if (process.platform === "win32") return normalized.toLowerCase();
+	return normalized;
+}
+
+function tryRealpath(p: string): string | undefined {
+	try {
+		return fs.realpathSync.native(p);
+	} catch {
+		return undefined;
+	}
+}
+
+function isPathInDirectoryLexical(filePath: string, directoryPath: string): boolean {
+	const normalizedPath = normalizePathForComparison(path.resolve(filePath));
+	const normalizedDirectory = normalizePathForComparison(path.resolve(directoryPath));
+	const relativePath = path.relative(normalizedDirectory, normalizedPath);
+	return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
+}
+
+function isPathInDirectory(filePath: string, directoryPath: string): boolean {
+	if (isPathInDirectoryLexical(filePath, directoryPath)) return true;
+	// Layer realpath resolution on top of the lexical guard. On Windows, ~/.bun
+	// is a junction when Bun is installed via Scoop, so `bun pm bin -g` and the
+	// PATH-resolved gjc path can refer to the same directory through different
+	// strings. path.resolve does not traverse junctions/symlinks; realpath does.
+	// Resolve the file's parent directory to tolerate the file itself not yet
+	// existing (e.g. a fresh install path) while still catching link-traversed
+	// equality once the directory exists.
+	const fileDir = tryRealpath(path.dirname(path.resolve(filePath)));
+	const dirReal = tryRealpath(path.resolve(directoryPath));
+	if (!fileDir || !dirReal) return false;
+	const resolvedFile = path.join(fileDir, path.basename(filePath));
+	return isPathInDirectoryLexical(resolvedFile, dirReal);
+}
+
+type UpdateTarget = { method: "bun" } | { method: "binary"; path: string };
+
+function resolveUpdateMethod(ompPath: string, bunBinDir: string | undefined): "bun" | "binary" {
+	if (!bunBinDir) return "binary";
+	return isPathInDirectory(ompPath, bunBinDir) ? "bun" : "binary";
+}
+
+export function resolveUpdateMethodForTest(ompPath: string, bunBinDir: string | undefined): "bun" | "binary" {
+	return resolveUpdateMethod(ompPath, bunBinDir);
+}
+async function resolveUpdateTarget(): Promise<UpdateTarget> {
+	const bunBinDir = await getBunGlobalBinDir();
+	const ompPath = resolveGjcPath();
+
+	if (ompPath) {
+		const method = resolveUpdateMethod(ompPath, bunBinDir);
+		if (method === "bun") return { method };
+		return { method, path: ompPath };
+	}
+
+	if (bunBinDir) return { method: "bun" };
+
+	throw new Error(formatUnsupportedTargetMessage(`Could not resolve ${APP_NAME} binary path in PATH`));
+}
+
+/**
+ * Get the latest release info from the npm registry.
+ * Uses npm instead of GitHub API to avoid unauthenticated rate limiting.
+ */
+async function getLatestRelease(): Promise<ReleaseInfo> {
+	const response = await fetch(`https://registry.npmjs.org/${PACKAGE}/latest`);
+	if (!response.ok) {
+		throw new Error(`Failed to fetch release info: ${response.statusText}`);
+	}
+
+	const data = (await response.json()) as { version: string };
+	const version = data.version;
+	const tag = `v${version}`;
+
+	return {
+		tag,
+		version,
+	};
+}
+
+/**
+ * Compare semver versions. Returns:
+ * - negative if a < b
+ * - 0 if a == b
+ * - positive if a > b
+ */
+function compareVersions(a: string, b: string): number {
+	const pa = a.split(".").map(Number);
+	const pb = b.split(".").map(Number);
+
+	for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+		const na = pa[i] || 0;
+		const nb = pb[i] || 0;
+		if (na !== nb) return na - nb;
+	}
+	return 0;
+}
+
+/**
+ * Get the appropriate binary name for this platform.
+ */
+function getBinaryName(platform: NodeJS.Platform = process.platform, arch: string = process.arch): string {
+	let os: string;
+	switch (platform) {
+		case "linux":
+			os = "linux";
+			break;
+		case "darwin":
+			os = "darwin";
+			break;
+		case "win32":
+			os = "windows";
+			break;
+		default:
+			throw new Error(formatUnsupportedTargetMessage(`Unsupported platform: ${platform}`));
+	}
+
+	let archName: string;
+	switch (arch) {
+		case "x64":
+			archName = "x64";
+			break;
+		case "arm64":
+			archName = "arm64";
+			break;
+		default:
+			throw new Error(formatUnsupportedTargetMessage(`Unsupported architecture: ${arch}`));
+	}
+
+	if (os === "windows") {
+		return `${APP_NAME}-${os}-${archName}.exe`;
+	}
+	return `${APP_NAME}-${os}-${archName}`;
+}
+
+/**
+ * Resolve the path that `gjc` maps to in the user's PATH.
+ */
+function resolveGjcPath(): string | undefined {
+	return $which(APP_NAME) ?? undefined;
+}
+
+/**
+ * Run the resolved gjc binary and check if it reports the expected version.
+ */
+async function verifyInstalledVersion(expectedVersion: string): Promise<InstalledVersionVerification> {
+	const ompPath = resolveGjcPath();
+	if (!ompPath) return { ok: false };
+	try {
+		const result = await $`${ompPath} --version`.quiet().nothrow();
+		if (result.exitCode !== 0) return { ok: false, path: ompPath };
+		const output = result.text().trim();
+		// Output format: "gjc/X.Y.Z"
+		const match = output.match(/\/(\d+\.\d+\.\d+)/);
+		const actual = match?.[1];
+		return { ok: actual === expectedVersion, actual, path: ompPath };
+	} catch {
+		return { ok: false, path: ompPath };
+	}
+}
+
+function printVerifiedVersion(expectedVersion: string): void {
+	console.log(chalk.green(`\n${theme.status.success} Updated to ${expectedVersion}`));
+}
+
+function formatBinaryInstallInstruction(platform: NodeJS.Platform = process.platform): string {
+	if (platform === "win32") {
+		return `For a supported binary install, reinstall with PowerShell: irm https://raw.githubusercontent.com/${RELEASE_REPO}/main/scripts/install.ps1 | iex`;
+	}
+	return `For a supported binary install, reinstall with: curl -fsSL https://raw.githubusercontent.com/${RELEASE_REPO}/main/scripts/install.sh | sh -s -- --binary`;
+}
+
+function formatManualUpdateInstructions(platform: NodeJS.Platform = process.platform): string {
+	return [
+		`If ${APP_NAME} was installed with Bun, run: bun install -g ${PACKAGE}@latest`,
+		`If ${APP_NAME} was installed with npm, pnpm, or another package manager, update it with that same manager.`,
+		formatBinaryInstallInstruction(platform),
+	].join("\n");
+}
+
+function formatUnsupportedTargetMessage(reason: string, platform: NodeJS.Platform = process.platform): string {
+	return `${reason}.\n${formatManualUpdateInstructions(platform)}`;
+}
+
+function buildReleaseBinaryUrl(
+	version: string,
+	platform: NodeJS.Platform = process.platform,
+	arch: string = process.arch,
+): string {
+	const binaryName = getBinaryName(platform, arch);
+	const tag = `v${version}`;
+	return `https://github.com/${RELEASE_REPO}/releases/download/${tag}/${binaryName}`;
+}
+
+function formatBinaryDownloadFailureMessage(
+	binaryName: string,
+	url: string,
+	status: string | number,
+	platform: NodeJS.Platform = process.platform,
+): string {
+	return `Download failed for ${binaryName} from ${url}: ${status}.\n${formatManualUpdateInstructions(platform)}`;
+}
+
+export function formatBinaryDownloadFailureMessageForTest(
+	binaryName: string,
+	url: string,
+	status: string | number,
+	platform: NodeJS.Platform = process.platform,
+): string {
+	return formatBinaryDownloadFailureMessage(binaryName, url, status, platform);
+}
+
+export function buildReleaseBinaryUrlForTest(
+	version: string,
+	platform: NodeJS.Platform = process.platform,
+	arch: string = process.arch,
+): string {
+	return buildReleaseBinaryUrl(version, platform, arch);
+}
+
+export function formatManualUpdateInstructionsForTest(platform: NodeJS.Platform = process.platform): string {
+	return formatManualUpdateInstructions(platform);
+}
+
+function formatVerificationFailure(result: InstalledVersionVerification, expectedVersion: string): string {
+	if (result.actual) {
+		return `${APP_NAME} at ${result.path} still reports ${result.actual} (expected ${expectedVersion})`;
+	}
+	return `could not verify updated version${result.path ? ` at ${result.path}` : ""}`;
+}
+
+/**
+ * Print post-update verification result.
+ */
+async function printVerification(expectedVersion: string): Promise<void> {
+	const result = await verifyInstalledVersion(expectedVersion);
+	if (result.ok) {
+		printVerifiedVersion(expectedVersion);
+		return;
+	}
+	console.log(chalk.yellow(`\nWarning: ${formatVerificationFailure(result, expectedVersion)}`));
+	console.log(chalk.yellow(formatManualUpdateInstructions()));
+}
+
+async function unlinkIfExists(filePath: string): Promise<void> {
+	try {
+		await fs.promises.unlink(filePath);
+	} catch (err) {
+		if (!isEnoent(err)) throw err;
+	}
+}
+
+/**
+ * Atomically replace the installed binary and roll back if version verification fails.
+ */
+export async function replaceBinaryForUpdate(options: BinaryReplacementOptions): Promise<InstalledVersionVerification> {
+	let backupReady = false;
+	try {
+		await unlinkIfExists(options.backupPath);
+		await fs.promises.rename(options.targetPath, options.backupPath);
+		backupReady = true;
+		await fs.promises.rename(options.tempPath, options.targetPath);
+
+		const verification = await options.verifyInstalledVersion(options.expectedVersion);
+		if (!verification.ok) {
+			throw new Error(
+				`${formatVerificationFailure(verification, options.expectedVersion)}; restored previous ${APP_NAME} binary`,
+			);
+		}
+
+		backupReady = false;
+		await unlinkIfExists(options.backupPath);
+		return verification;
+	} catch (err) {
+		if (backupReady) {
+			await unlinkIfExists(options.targetPath);
+			await fs.promises.rename(options.backupPath, options.targetPath);
+		}
+		await unlinkIfExists(options.tempPath);
+		throw err;
+	}
+}
+
+/**
+ * Update via bun package manager.
+ */
+async function updateViaBun(expectedVersion: string): Promise<void> {
+	console.log(chalk.dim("Updating via bun..."));
+	const result = await $`bun install -g ${PACKAGE}@${expectedVersion}`.nothrow();
+	if (result.exitCode !== 0) {
+		throw new Error(`bun install failed with exit code ${result.exitCode}`);
+	}
+
+	await printVerification(expectedVersion);
+}
+
+/**
+ * Download a release binary to a target path, replacing an existing file.
+ */
+async function updateViaBinaryAt(targetPath: string, expectedVersion: string): Promise<void> {
+	const binaryName = getBinaryName();
+	const url = buildReleaseBinaryUrl(expectedVersion);
+
+	const tempPath = `${targetPath}.new`;
+	const backupPath = `${targetPath}.bak`;
+	console.log(chalk.dim(`Downloading ${binaryName}…`));
+
+	const response = await fetch(url, { redirect: "follow" });
+	if (!response.ok || !response.body) {
+		throw new Error(formatBinaryDownloadFailureMessage(binaryName, url, response.statusText || response.status));
+	}
+	const fileStream = fs.createWriteStream(tempPath, { mode: 0o755 });
+	await pipeline(response.body, fileStream);
+
+	console.log(chalk.dim("Installing update..."));
+	await replaceBinaryForUpdate({
+		targetPath,
+		tempPath,
+		backupPath,
+		expectedVersion,
+		verifyInstalledVersion,
+	});
+	printVerifiedVersion(expectedVersion);
+	console.log(chalk.dim(`Restart ${APP_NAME} to use the new version`));
+}
+
+/**
+ * Run the update command.
+ */
+export async function runUpdateCommand(opts: { force: boolean; check: boolean }): Promise<void> {
+	console.log(chalk.dim(`Current version: ${VERSION}`));
+
+	// Check for updates
+	let release: ReleaseInfo;
+	try {
+		release = await getLatestRelease();
+	} catch (err) {
+		console.error(chalk.red(`Failed to check for updates: ${err}`));
+		process.exit(1);
+	}
+
+	const comparison = compareVersions(release.version, VERSION);
+
+	if (comparison <= 0 && !opts.force) {
+		console.log(chalk.green(`${theme.status.success} Already up to date`));
+		return;
+	}
+
+	if (comparison > 0) {
+		console.log(chalk.cyan(`New version available: ${release.version}`));
+	} else {
+		console.log(chalk.yellow(`Forcing reinstall of ${release.version}`));
+	}
+
+	if (opts.check) {
+		// Just check, don't install
+		return;
+	}
+
+	// Choose update method based on the prioritized gjc binary in PATH
+	try {
+		const target = await resolveUpdateTarget();
+		if (target.method === "bun") {
+			await updateViaBun(release.version);
+		} else {
+			await updateViaBinaryAt(target.path, release.version);
+		}
+	} catch (err) {
+		console.error(chalk.red(`Update failed: ${err}`));
+		process.exit(1);
+	}
+}
+
+/**
+ * Print update command help.
+ */
+export function printUpdateHelp(): void {
+	console.log(`${chalk.bold(`${APP_NAME} update`)} - Check for and install updates
+
+${chalk.bold("Usage:")}
+  ${APP_NAME} update [options]
+
+${chalk.bold("Options:")}
+  -c, --check   Check for updates without installing
+  -f, --force   Force reinstall even if up to date
+
+${chalk.bold("Examples:")}
+  ${APP_NAME} update           Update to latest version
+  ${APP_NAME} update --check   Check if updates are available
+  ${APP_NAME} update --force   Force reinstall
+`);
+}
