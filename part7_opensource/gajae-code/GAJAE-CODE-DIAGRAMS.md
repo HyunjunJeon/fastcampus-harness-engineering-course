@@ -1,8 +1,6 @@
-# Gajae-Code 아키텍처 도식집 (Mermaid Diagrams)
+# Gajae-Code 아키텍처 도식
 
 > 본 문서는 [`GAJAE-CODE-ANALYSIS.md`](./GAJAE-CODE-ANALYSIS.md)와 함께 보기 위한 시각 자료 모음이다.
-> 각 다이어그램은 코드를 직접 대조하여 그렸으며, 관련 분석 문서 섹션과 코드 위치를 함께 표기했다.
-> GitHub / VS Code / Mermaid 미리보기가 지원되는 환경에서 렌더링된다.
 
 ## 목차
 

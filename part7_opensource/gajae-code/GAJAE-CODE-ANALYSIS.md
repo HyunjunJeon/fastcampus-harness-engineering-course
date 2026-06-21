@@ -1,4 +1,4 @@
-# Gajae-Code 분석 보고서: 아키텍처, 코드 검증, 그리고 소프트웨어 공학적 시사점
+# Gajae-Code 분석 보고서
 
 > **함께 보기:** 시각 자료는 [`GAJAE-CODE-DIAGRAMS.md`](./GAJAE-CODE-DIAGRAMS.md)에 14개의 Mermaid 다이어그램으로 정리되어 있다. 각 섹션 하단의 "연관 문서" 링크로 이동하면 해당 도식을 볼 수 있다.
 
@@ -23,9 +23,8 @@
   - [4.4 Tool Registry와 Bash Executor](#44-tool-registry와-bash-executor)
   - [4.5 Multi-Agent / Async Job System](#45-multi-agent--async-job-system)
   - [4.6 Model Provider 분리](#46-model-provider-분리)
-- [Part 5. 검증 총평](#part-5-검증-총평)
-- [Part 6. 소프트웨어 공학적 시사점: 참고할 만한 8가지 설계 특성](#part-6-소프트웨어-공학적-시사점-참고할-만한-8가지-설계-특성)
-- [Part 7. 벤치마킹 시 주의사항](#part-7-벤치마킹-시-주의사항)
+- [Part 5. 소프트웨어 공학적 시사점: 참고할 만한 8가지 설계 특성](#part-5-소프트웨어-공학적-시사점-참고할-만한-8가지-설계-특성)
+- [Part 6. 벤치마킹 시 주의사항](#part-6-벤치마킹-시-주의사항)
 
 ---
 
@@ -438,46 +437,15 @@ export function stream<TApi extends Api>(model: Model<TApi>, context: Context, o
 
 ---
 
-## Part 5. 검증 총평
-
-### 주장별 검증 결과 요약
-
-| 영역 | 결과 | 비고 |
-|---|---|---|
-| CLI routing | CONFIRMED | launch fallback 정확 |
-| Session assembly 7단계 | 7/7 (1개 PARTIAL) | extension discovery는 실제로 비활성화 |
-| Workflow 4종 + `.gjc/` state | CONFIRMED | atomic write, activation record 모두 확인 |
-| Tool registry + bash executor | CONFIRMED | 8개 lifecycle 차원 모두 존재 |
-| Multi-agent / async job | CONFIRMED | **가장 강한 주장도 코드로 확인** |
-| Model provider 분리 | CONFIRMED | "runtime policy" 주장 완전히 뒷받침 |
-
-### 문서와 코드의 미세한 차이 (뉘앙스 수준, 반박 아님)
-
-1. **ACP 모드**: "모든 모드가 AgentSession 공유"는 ACP 제외 (ACP는 세션당 factory)
-2. **Extension discovery**: 파일시스템 extension 탐색이 명시적으로 비활성화(quarantined)됨
-3. **Bash renderer**: tool 인스턴스가 아니라 별도 `toolRenderers` map에 등록
-4. **"No lockfiles"**: 실제로는 advisory directory lock 사용 (crash vs concurrency 구분)
-5. **Fuzzy match 위치**: `model-registry.ts`가 아니라 `model-resolver.ts`
-6. **Provider 수**: 문서가 ~6개만 예시로 들지만 실제로는 ~47개
-7. **Lease 위치**: `coordinator-mcp/`가 아니라 `harness-control-plane/session-lease.ts`
-
-### 문서가 코드보다 보수적인 부분 (코드가 더 풍부함)
-
-- Subagent lifecycle에 auth-fallback model tracking, resume queue, dead-letter, OpenTelemetry span nesting까지 추가
-- `disabledFeatures`로 provider의 조용한 fallback까지 추적
-- canonical variant resolution이 vision capability, provider rank, source rank까지 고려
-- Dual schema contract (lenient read / strict write) — 문서에 언급 없으나 우수한 설계
-
 ### 결론
 
 이 프로젝트의 **문서-코드 정합성은 상당히 높다**. 특히 "subagent는 owned task다", "model selection은 runtime policy다", "Coordinator는 scrollback이 아니라 file state다" 같은 핵심 주장이 코드 라인 수준에서 뒷받침된다. 발견된 차이는 파일 위치 뉘앙스나 "ACP는 예외다" 같은 세부 사항이지, 아키텍처 철학을 반박하는 수준은 아니다.
 
 ---
 
-## Part 6. 소프트웨어 공학적 시사점: 참고할 만한 8가지 설계 특성
+## Part 5. 소프트웨어 공학적 시사점: 참고할 만한 8가지 설계 특성
 
 > 이 파트는 "다른 agent harness를 설계할 때 벤치마킹할 만한 설계 원칙"을 정리한다.
-> 각 특성은 코드 검증을 기반으로 하며, 일반화 시 주의점도 함께 기록한다.
 
 ### 특성 1. Policy vs Mechanism의 엄격한 분리
 
@@ -705,7 +673,7 @@ tmux는 `send-keys` delivery 채널일 뿐이다. 진짜 상태는 `event-journa
 
 ---
 
-## Part 7. 벤치마킹 시 주의사항
+## Part 6. 벤치마킹 시 주의사항
 
 Gajae-Code의 "그대로 베끼면 안 되는 부분" 섹션과 코드 검증에서 발견된 한계. 문서의 솔직한 경고를 그대로 옮긴다:
 
