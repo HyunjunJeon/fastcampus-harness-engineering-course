@@ -172,3 +172,60 @@ AGENTS.md/CLAUDE.md를 특별 취급하지 않고 일반 파일과 동일하게 
 
 지금 워크플로가 마저 확인하는 것은 제가 grep으로 직접 안 본 사각지대입니다 — ① config-writer.ts나 capability/instruction.ts의 write-back, ② hook이 자동으로 context 파일을 쓰는지, ③ "memory/learnings"류 기능이 AGENTS.md에 append하는지, ④ 숨겨진 스캐폴드 템플릿. 5개 차원 × 후보별 적대적 검증이 끝나면 이 잠정 결론을 확정하거나 보강해서 최종 정리해 드리겠습니다. (백그라운드 작업이라 완료되면 자동으로 이어서 답합니다.)
 
+---
+
+워크플로가 45개 에이전트로 5개 차원을 훑고 후보마다 적대적 검증(파일 직접 열람)을 끝냈습니다. 제 grep ground truth와 정확히 일치합니다 — 확정 6건, 배제 16건. 종합하면 결론은 명확합니다.
+
+직접 답: 자동으로/프로그램이 CLAUDE.md·AGENTS.md를 덮어쓰는 코드는 없습니다.
+소스 트리(테스트 제외)에서 Bun.write/writeFile/fs.write가 "CLAUDE.md"·"AGENTS.md" 경로를 향하는 호출은 0건입니다. 두 파일이 써질 수 있는 경로는 딱 두 부류인데, 둘 다 "프로그램의 결정론적 덮어쓰기"가 아니라 LLM(모델) 주도 + 사용자 승인 경로입니다.
+
+★ Insight ─────────────────────────────────────
+
+검증된 6건은 전부 "코드가 그 파일명을 특별 취급해서 쓴다"가 아니라, **"범용 파일 도구가 모델이 준 경로를 그대로 쓴다 / 프롬프트가 모델에게 쓰라고 지시한다"**로 환원됩니다. 즉 CLAUDE.md/AGENTS.md는 코드 입장에서 그냥 평범한 파일입니다.
+16건의 배제(rejected) 검증이 더 중요합니다 — discovery·capability·config-writer·install·hooks·memory가 전부 읽기 전용이거나 다른 파일명을 쓴다는 걸 파일을 직접 열어 확인했습니다.
+─────────────────────────────────────────────────
+확정된 6건 → 2가지 부류
+부류 A. 에이전트의 범용 파일 도구 (모델 주도, 특별 취급 없음)
+도구	위치	동작
+write	tools/write.ts:736-762	모델이 준 path로 전체 내용 덮어쓰기(있으면 overwrite, 없으면 create). append 아님
+patch / apply_patch	edit/modes/patch.ts:1431-1525	모델이 준 hunk path(또는 rename)로 overwrite-in-place
+edit	edit/index.ts:275-349	모드 디스패처 — 위 두 백엔드로 위임
+핵심: 이 도구들의 path는 자유 문자열 스키마(write.ts:61-64)이고, allowlist/denylist가 없습니다. 유일한 가드인 assertEditableFile은 자동생성 파일(@generated, *.pb.go, zz_generated.* 등)만 차단하지, CLAUDE.md/AGENTS.md는 목록에 없어 그대로 통과합니다. → 모델이 write 도구에 path: "AGENTS.md"를 주면, 사용자 권한 승인 후 평범하게 덮어씁니다.
+
+부류 B. /init 계열 — 프롬프트가 LLM에게 "쓰라"고 지시 (코드 아님)
+prompts/agents/init.md는 실행 코드가 아니라 임베드된 슬래시 커맨드 프롬프트입니다 (task/commands.ts:11-13). 본문 init.md:32-33:
+
+<output> After analysis, you MUST write AGENTS.md to the project root. </output>
+
+즉 /init을 부르면 LLM이 explore 에이전트로 코드베이스를 훑은 뒤, 자기 write 도구로 AGENTS.md(제목 "Repository Guidelines")를 생성합니다. 주의할 점:
+
+대상은 AGENTS.md만 — /init이 CLAUDE.md를 만들거나 덮어쓰는 경로는 없습니다.
+프롬프트에 overwrite/create-if-missing 가드 문구가 없어, 모델이 따르면 사실상 무조건 덮어쓰기가 됩니다.
+외부 OMC 스킬 /init-deep(gajae-code 외부, ~/.claude/skills/init-deep/SKILL.md)는 더 세분화: 기본값 = 기존 AGENTS.md 병합 + <!-- MANUAL --> 섹션 보존, --create-new = 읽고→삭제→재생성(파괴적). 이것도 전부 코드가 아니라 스킬 프로즈가 에이전트에게 지시하는 방식입니다.
+(세 번째 확정건은 테스트 픽스처가 임시 디렉토리에 AGENTS.md를 쓰는 것 — 프로덕션과 무관합니다.)
+
+검증으로 배제된 것들 (= "이건 안 쓴다"가 증명된 부분)
+후보로 의심됐지만 파일을 직접 열어 읽기 전용이거나 다른 파일명임이 확인된 경로들:
+
+의심 경로	실제	결론
+discovery/claude.ts·agents.ts·agents-md.ts·builtin.ts·codex.ts·opencode.ts	전부 readFile만	읽기 전용
+capability/fs.ts	read 프리미티브만 (writeFile 부재)	쓰기 불가
+capability/context-file.ts·instruction.ts·settings.ts·hook.ts	스키마/validate만, I/O 없음	쓰기 없음
+runtime-mcp/config-writer.ts	.gjc/mcp.json(JSON) atomic overwrite	마크다운 아님
+defaults/gjc-defaults.ts (install)	SKILL.md+fragment만, create-if-missing	CLAUDE/AGENTS 아님
+setup/hermes-setup.ts	operator instructions를 SKILL.md로 + YAML config	〃
+memories/index.ts	MEMORY.md·raw_memories.md·memory_summary.md	〃
+cli/agents-cli.ts	<agent-name>.md (executor.md 등)	〃
+commit/agentic/index.ts	AGENTS.md는 읽어서 컨텍스트로만, 쓰기는 CHANGELOG.md	읽기+딴 파일
+tools/hindsight-retain.ts	원격 HTTP 뱅크에 POST	로컬 파일 안 씀
+extensibility/hooks/runner.ts	순수 이벤트 디스패처	파일 안 씀
+★ Insight ─────────────────────────────────────
+
+설계 일관성: gjc는 자기 산출물은 전용 파일명(SKILL.md, MEMORY.md, mcp.json, <agent>.md)에만 씁니다. CLAUDE.md/AGENTS.md는 "사용자/타 에이전트 소유의 입력"으로 취급해 읽기만 합니다 — 첫 답변의 discovery 격리 철학과 일치합니다.
+단 하나의 예외가 /init인데, 이마저 코드가 아니라 프롬프트로 분리해 뒀습니다. 덕분에 "자동으로 사용자 파일을 건드리는" 일이 코드 레벨에서 원천 차단됩니다 — 모델이 명시적으로, 사용자 승인 하에서만 씁니다.
+─────────────────────────────────────────────────
+실무적 함의
+설치/시동만으로 CLAUDE.md·AGENTS.md가 바뀌는 일은 없습니다. 안심하고 두 파일에 수동 규칙을 적어둬도 됩니다.
+그 파일이 바뀌는 유일한 순간은 당신이 /init(또는 /init-deep)을 실행하거나, 모델이 그 경로를 편집하도록 두고 승인할 때입니다 — 둘 다 명시적 행위입니다.
+/init은 가드가 없어 기존 AGENTS.md를 통째로 덮어쓸 수 있으니, 손으로 다듬은 내용이 있다면 /init-deep(MANUAL 섹션 보존)을 쓰거나 사전 백업/커밋을 권합니다.
+원하시면 ① write 도구의 plan-mode 가드(enforcePlanModeWrite)가 쓰기를 어떻게 추가로 게이팅하는지, ② /init-deep의 MANUAL-sentinel 병합 로직, ③ assertEditableFile의 자동생성 판별 규칙 — 어느 쪽이든 더 파고들 수 있습니다.
