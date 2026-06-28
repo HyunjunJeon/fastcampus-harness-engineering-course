@@ -1,17 +1,11 @@
 # oh-my-openagent 코드 파악 문서
 
-> 목적: 이 문서는 `part7_opensource/oh-my-openagent/`를 처음 읽는 사람이 프로젝트 구조, 주요 실행 흐름, 수정 위치, 검증 기준을 빠르게 잡기 위한 한국어 안내서다.
->
-> 범위: 코드 구조와 프로젝트 파악에 필요한 내용만 다룬다. 제품 소개, 철학, 발표용 해석은 [`ARCHITECTURE.md`](./ARCHITECTURE.md)로 분리한다.
->
-> 기준일: 2026-06-18
-> 기준 버전: `package.json`의 `4.11.0`
-
----
+`oh-my-openagent`는 OpenCode용 Ultimate edition과 Codex용 Light edition을 같은 monorepo에서 관리하며, 공통 정책과 runtime primitive를 여러 package로 나눈 multi-harness agent runtime이다.
 
 ## 먼저 읽을 것
 
-이 저장소는 일반적인 라이브러리보다 agent harness에 가깝다. 핵심은 모델 호출이 아니라, OpenCode와 Codex라는 서로 다른 실행 표면 위에 agent, tool, hook, skill, installer, MCP/LSP runtime을 얹는 구조다.
+이 저장소는 일반적인 라이브러리보다 agent harness 입니다.  
+핵심은 모델 호출이 아니라, 서로 다른 실행 표면 위에 agent, tool, hook, skill, installer, MCP/LSP runtime을 얹는 구조로 존재합니다.
 
 처음에는 아래 순서로 읽는 편이 빠르다.
 
@@ -25,9 +19,6 @@
 
 `ARCHITECTURE.md`는 아이디어를 얻기 위한 문서다. 실제 수정 위치를 찾을 때는 이 문서와 GitNexus wiki, 각 패키지의 `AGENTS.md`를 우선한다.
 
-## 한 문장 요약
-
-`oh-my-openagent`는 OpenCode용 Ultimate edition과 Codex용 Light edition을 같은 monorepo에서 관리하며, 공통 정책과 runtime primitive를 여러 package로 나눈 multi-harness agent runtime이다.
 
 ## 이름과 표면 정리
 
