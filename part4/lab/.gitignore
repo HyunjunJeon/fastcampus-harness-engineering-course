@@ -5,3 +5,10 @@ __pycache__/
 logs/
 hook_smoke_*.txt
 .agent/reports/
+
+# Generated skill links (source of truth: common_skills/). Regenerated per-OS
+# by scripts/sync_common_skills.sh — symlink on POSIX, junction on Windows.
+.claude/skills/*
+.agents/skills/*
+!.claude/skills/README.md
+!.agents/skills/README.md
